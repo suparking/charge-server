@@ -1,0 +1,32 @@
+package net.suparking.chargeserver.parking;
+
+import net.suparking.server.util.Util;
+
+public class HistoryPayment {
+    public String plateNo;
+    public String begin;
+    public String end;
+    public Integer effectiveAmount;
+
+    public HistoryPayment() {}
+
+    public HistoryPayment(ParkingOrder order) {
+        this.plateNo = order.plateNo;
+        this.begin = Util.epochToYMDHMS(order.beginTime);
+        this.end = Util.epochToYMDHMS(order.endTime);
+        this.effectiveAmount = order.effectiveAmount();
+    }
+
+    public HistoryPayment(ParkingOrder order, long beginTime, long endTime) {
+        this.plateNo = order.plateNo;
+        this.begin = Util.epochToYMDHMS(order.beginTime);
+        this.end = Util.epochToYMDHMS(order.endTime);
+        this.effectiveAmount = order.effectiveAmount(beginTime, endTime);
+    }
+
+    @Override
+    public String toString() {
+        return "HistoryPayment{" + "plateNo='" + plateNo + '\'' + ", begin='" + begin + '\'' + ", end='" + end + '\'' +
+               ", effectiveAmount=" + effectiveAmount + '}';
+    }
+}

@@ -26,6 +26,15 @@ public class DiscountInfo {
        return bindingDiscountRepository.getDiscountInfo(userId);
     }
 
+    public static boolean same(DiscountInfo discountInfo1, DiscountInfo discountInfo2) {
+        if (discountInfo1 != null) {
+            return discountInfo1.same(discountInfo2);
+        } else if (discountInfo2 != null) {
+            return discountInfo2.same(discountInfo1);
+        } else {
+            return true;
+        }
+    }
     private static BindingDiscountRepository bindingDiscountRepository = ChargeServerApplication.getBean("BindingDiscountRepositoryImpl", BindingDiscountRepository.class);
 
     public DiscountInfo() {}
