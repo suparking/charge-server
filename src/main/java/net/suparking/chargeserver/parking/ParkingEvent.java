@@ -15,6 +15,11 @@ public class ParkingEvent {
     public Long eventTime;
 
     public ObjectId parkId;
+
+    public String parkNo;
+
+    public String deviceNo;
+
     public String parkName;
 
     public String recogId;
@@ -29,6 +34,7 @@ public class ParkingEvent {
     public ParkingEvent(ParkingEvent event) {
         this.eventType = event.eventType;
         this.eventTime = event.eventTime;
+        this.parkNo = event.parkNo;
         this.parkId = event.parkId;
         this.parkName = event.parkName;
         this.recogId = event.recogId;
@@ -41,6 +47,7 @@ public class ParkingEvent {
     public ParkingEvent(ParkingTrigger parkingTrigger, EventType eventType) {
         this.eventType = eventType;
         this.eventTime = parkingTrigger.recogTime;
+        this.parkNo = parkingTrigger.parkNo;
         this.parkId = parkingTrigger.parkId;
         this.parkName = parkingTrigger.parkName;
         this.recogId = parkingTrigger.recogId;
@@ -53,6 +60,7 @@ public class ParkingEvent {
     public ParkingEvent(long eventTime, EventType eventType, ParkingEvent event) {
         this.eventType = eventType;
         this.eventTime = eventTime;
+        this.parkNo = event.parkNo;
         this.parkId = event.parkId;
         this.parkName = event.parkName;
         this.inSubAreaId = this.outSubAreaId = event.inSubAreaId;

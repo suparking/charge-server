@@ -36,6 +36,9 @@ public class Parking {
 
      public String userId;
 
+     // 车位ID
+     public String parkId;
+
      // 车位编号,车位名称
      public String parkNo;
 
@@ -96,6 +99,7 @@ public class Parking {
     public Parking() {}
 
     public Parking(Recog recog, CarContext carContext, ParkingConfig parkingConfig) {
+        this.parkId = recog.getParkId().toString();
         this.parkNo = recog.getParkNo();
         this.parkName = recog.getParkName();
         this.deviceNo = recog.getDeviceNo();

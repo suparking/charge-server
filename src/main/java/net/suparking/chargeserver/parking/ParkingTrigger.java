@@ -15,9 +15,13 @@ public class ParkingTrigger {
     // 常升 降锁成功时间, 常降 升锁成功时间
     public Long openTime;
 
+    public String deviceNo;
+
     // 车位ID
     public ObjectId parkId;
 
+    // 车位编号
+    public String parkNo;
     // 车位名称
     public String parkName;
 
@@ -26,8 +30,7 @@ public class ParkingTrigger {
     public ObjectId outSubAreaId;
     public String outSubAreaName;
 
-    // 车位编号
-    public String parkNo;
+
 
     public ObjectId carTypeId;
     public String carTypeName;
