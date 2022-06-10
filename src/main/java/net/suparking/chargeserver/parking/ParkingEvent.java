@@ -37,6 +37,7 @@ public class ParkingEvent {
         this.parkNo = event.parkNo;
         this.parkId = event.parkId;
         this.parkName = event.parkName;
+        this.deviceNo = event.deviceNo;
         this.recogId = event.recogId;
         this.inSubAreaId = event.inSubAreaId;
         this.inSubAreaName = event.inSubAreaName;
@@ -50,6 +51,7 @@ public class ParkingEvent {
         this.parkNo = parkingTrigger.parkNo;
         this.parkId = parkingTrigger.parkId;
         this.parkName = parkingTrigger.parkName;
+        this.deviceNo = parkingTrigger.deviceNo;
         this.recogId = parkingTrigger.recogId;
         this.inSubAreaId = parkingTrigger.inSubAreaId;
         this.inSubAreaName = parkingTrigger.inSubAreaName;
@@ -63,6 +65,7 @@ public class ParkingEvent {
         this.parkNo = event.parkNo;
         this.parkId = event.parkId;
         this.parkName = event.parkName;
+        this.deviceNo = event.deviceNo;
         this.inSubAreaId = this.outSubAreaId = event.inSubAreaId;
         this.inSubAreaName = this.outSubAreaName = event.inSubAreaName;
     }
