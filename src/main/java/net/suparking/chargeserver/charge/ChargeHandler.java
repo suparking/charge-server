@@ -78,12 +78,12 @@ public class ChargeHandler {
      * @param periods
      * @return
      */
-    public static LinkedList<ChargeFrameInfo> buildChargeFrameInfo(List<ChargePeriod> periods) {
+    public static LinkedList<ChargeFrameInfo> buildChargeFrameInfo(String projectNo, List<ChargePeriod> periods) {
         LinkedList<ChargeFrameInfo> chargeFrameInfos = new LinkedList<>();
         ChargeFrameInfo chargeFrameInfo = null;
         ChargeFrame lastChargeFrame = null;
         for (ChargePeriod period: periods) {
-            ChargeType chargeType = ChargeType.findById(period.chargeTypeId);
+            ChargeType chargeType = ChargeType.findById(projectNo, period.chargeTypeId);
             if (lastChargeFrame == null) {
                 chargeFrameInfo = new ChargeFrameInfo(period.beginTime);
                 chargeFrameInfos.addLast(chargeFrameInfo);

@@ -23,7 +23,7 @@ public class CarType extends FieldValidator {
     public String carTypeName;
     @ParamNotNull
     public String carTypeAlias;
-    public PlateNoRule plateNoRule;
+
     @ParamNotNull
     public ObjectId defaultChargeTypeId;
     @ParamNotNull
@@ -45,16 +45,16 @@ public class CarType extends FieldValidator {
         carTypeRepository.reload(carType);
     }
 
-    public static void unloadById(ObjectId id) {
-        carTypeRepository.unloadById(id);
+    public static void unloadById(String projectNo, ObjectId id) {
+        carTypeRepository.unloadById(projectNo, id);
     }
 
-    public static CarType findById(ObjectId id) {
-        return carTypeRepository.findById(id);
+    public static CarType findById(String projectNo, ObjectId id) {
+        return carTypeRepository.findById(projectNo, id);
     }
 
-    public static boolean tempType(ObjectId id) {
-        return carTypeRepository.tempType(id);
+    public static boolean tempType(String projectNo, ObjectId id) {
+        return carTypeRepository.tempType(projectNo, id);
     }
 
     private static CarTypeRepository carTypeRepository = ChargeServerApplication.getBean(
@@ -67,14 +67,7 @@ public class CarType extends FieldValidator {
         if (!super.validate()) {
             return false;
         }
-        if (carTypeClass.equals(CarTypeClass.SPECIAL)) {
-            if (plateNoRule == null) {
-                log.error("plateNoRule cannot be null");
-                return false;
-            } else if (!plateNoRule.validate()) {
-                return false;
-            }
-        }
+
         if (maxAmountForMultiParking != null) {
             if (!maxAmountForMultiParking.validate()) {
                 return false;
@@ -115,16 +108,11 @@ public class CarType extends FieldValidator {
         }
     }
 
-    public int matchIndex(String plateNo) {
-        return plateNoRule != null ? plateNoRule.matchedIndex(plateNo) : -1;
-    }
-
     @Override
     public String toString() {
         return "CarType{" + "id=" + id + ", carTypeClass=" + carTypeClass + ", carTypeName='" + carTypeName + '\'' +
-               ", carTypeAlias='" + carTypeAlias + '\'' + ", plateNoRule=" + plateNoRule + ", defaultChargeTypeId=" +
-                defaultChargeTypeId + ", chargeStrategies=" + chargeStrategies +
-               ", maxAmountForMultiParking=" + maxAmountForMultiParking + ", extraAmountOverTimePoint=" +
+               ", carTypeAlias='" + carTypeAlias + '\'' + ", defaultChargeTypeId=" + defaultChargeTypeId +
+                ", chargeStrategies=" + chargeStrategies + ", maxAmountForMultiParking=" + maxAmountForMultiParking + ", extraAmountOverTimePoint=" +
                extraAmountOverTimePoint + ", forceOpen=" + forceOpen + ", barrierFree=" + barrierFree +
                ", strictOnShared=" + strictOnShared + ", defaultType=" + defaultType + ", remark='" + remark + '\'' +
                ", projectNo='" + projectNo + '\'' + ", creator='" + creator + '\'' + ", createTime=" + createTime +

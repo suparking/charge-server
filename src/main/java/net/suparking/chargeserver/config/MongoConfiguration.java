@@ -25,4 +25,9 @@ public class MongoConfiguration extends AbstractMongoConfig {
 
         return new MongoTemplate(mongoDbFactory(), converter);
     }
+
+    @Bean
+    public MongoMappingContext mongoMappingContext() throws ClassNotFoundException {
+        return new MongoMappingContext();
+    }
 }

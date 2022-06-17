@@ -27,8 +27,8 @@ public class DateType extends FieldValidator {
         chargeCalenderDateRepository.reloadDateType(dateType);
     }
 
-    public static void unloadById(ObjectId id) {
-        chargeCalenderDateRepository.unloadDateTypeById(id);
+    public static void unloadById(String projectNo, ObjectId id) {
+        chargeCalenderDateRepository.unloadDateTypeById(projectNo, id);
     }
 
     @Override

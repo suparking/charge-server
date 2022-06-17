@@ -1,9 +1,16 @@
 package net.suparking.chargeserver.common;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import net.suparking.chargeserver.ChargeServerApplication;
 import net.suparking.chargeserver.parking.BindingDiscountRepository;
 import net.suparking.chargeserver.util.Util;
-
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class DiscountInfo {
 
     public String discountNo;
@@ -36,8 +43,6 @@ public class DiscountInfo {
         }
     }
     private static BindingDiscountRepository bindingDiscountRepository = ChargeServerApplication.getBean("BindingDiscountRepositoryImpl", BindingDiscountRepository.class);
-
-    public DiscountInfo() {}
 
     public DiscountInfo(final DiscountInfo discountInfo) {
         this.discountNo = discountInfo.discountNo;

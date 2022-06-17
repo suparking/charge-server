@@ -32,8 +32,6 @@ public class Protocol extends FieldValidator {
     public Duration duration;
     public Integer price;
     public List<UserService> userServices;
-    public TimeBalance timeBalance;
-    public Wallet wallet;
     public String protocolDesc;
     public String remark;
     public String projectNo;
@@ -86,14 +84,6 @@ public class Protocol extends FieldValidator {
                 return false;
             }
         }
-        if (timeBalance != null) {
-            if (!timeBalance.validate()) {
-                return false;
-            }
-        }
-        if (wallet != null) {
-            return wallet.validate();
-        }
         return true;
     }
 
@@ -103,14 +93,6 @@ public class Protocol extends FieldValidator {
 
     public int totalSpaceQuantity() {
         return parkingPolicy.totalSpaceQuantity();
-    }
-
-    public boolean timeBalanceEnabled() {
-        return timeBalance != null;
-    }
-
-    public boolean walletEnabled() {
-        return wallet != null;
     }
 
     public MultiMaxPolicy multiMaxPolicy(long enterTime, long leaveTime) {
@@ -124,8 +106,7 @@ public class Protocol extends FieldValidator {
                ", carTypeName='" + carTypeName + '\'' + ", carTypeId='" + carTypeId + '\'' + ", parkingPolicy=" +
                parkingPolicy + ", maxFixedCarQuantity=" + maxFixedCarQuantity + ", disableShareReturn=" +
                disableShareReturn + ", maxAmountForMultiParking=" + maxAmountForMultiParking + ", duration=" +
-               duration + ", price=" + price + ", userServices=" + userServices + ", timeBalance=" + timeBalance +
-               ", wallet=" + wallet + ", protocolDesc='" + protocolDesc + '\'' + ", remark='" + remark + '\'' +
+               duration + ", price=" + price + ", userServices=" + userServices + ", protocolDesc='" + protocolDesc + '\'' + ", remark='" + remark + '\'' +
                ", projectNo='" + projectNo + '\'' + ", creator='" + creator + '\'' + ", createTime=" + createTime +
                ", modifier='" + modifier + '\'' + ", modifyTime=" + modifyTime + ", expiredCarTypeId=" + expiredCarTypeId +
                 "} " + super.toString();

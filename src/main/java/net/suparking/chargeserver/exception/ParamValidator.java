@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 
-import static net.suparking.server.exception.ErrorCode.*;
+import static net.suparking.chargeserver.exception.ErrorCode.EXCEPTION_NULL_PARAM;
 
 public class ParamValidator {
     private static final Logger log = LoggerFactory.getLogger(ParamValidator.class);

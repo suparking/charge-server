@@ -10,7 +10,6 @@ import net.suparking.chargeserver.car.MaxAmountForMultiParking;
 import net.suparking.chargeserver.car.MultiMaxPolicy;
 import net.suparking.chargeserver.car.MultiParkingUnit;
 import net.suparking.chargeserver.car.Period;
-import net.suparking.chargeserver.car.TxSnapshot;
 import net.suparking.chargeserver.charge.ChargeFrameInfo;
 import net.suparking.chargeserver.charge.ChargeHandler;
 import net.suparking.chargeserver.charge.ChargeInfo;
@@ -50,8 +49,6 @@ public class ParkingOrder {
     public DiscountInfo discountInfo;
     public LinkedList<ChargeInfo> chargeInfos;
     public Integer totalAmount;
-    public TxSnapshot timeBalanceSnapshot;
-    public TxSnapshot walletSnapshot;
     public Integer discountedMinutes;
     public Integer discountedAmount;
     public HistoryOrderTraceInfo historyOrderTraceInfo;
@@ -195,7 +192,7 @@ public class ParkingOrder {
 
         LinkedList<Frame> rawFrames = makeRawFrames(beginTime, events);
         LinkedList<Frame> unpaidFrames = makeCarGroupFrames(rawFrames, carContext);
-        LinkedList<ChargePeriod> periods = buildChargePeriods(unpaidFrames, tempTypeId);
+        LinkedList<ChargePeriod> periods = buildChargePeriods(carContext.getProjectNo(), unpaidFrames, tempTypeId);
 
         if (periods.isEmpty()) {
             log.error("Empty periods, should not happen!");
@@ -204,26 +201,21 @@ public class ParkingOrder {
         }
 
         // txTTL 最小事物时长 分钟
-        List<ChargeFrameInfo> chargeFrameInfos = ChargeHandler.buildChargeFrameInfo(periods);
+        List<ChargeFrameInfo> chargeFrameInfos = ChargeHandler.buildChargeFrameInfo(carContext.getProjectNo(), periods);
         // 通过计费规则类型等于FREE 返回真正的计费时长
         int chargeMinutes = ChargeHandler.chargeFrameInfoToGapTime(chargeFrameInfos);
-        // TODO: 通过优惠时长与停车时长,计算出最终停车时长,如果有时长账户那么先暂存
-        prepareTimeDeduction(carContext, chargeMinutes, Util.expireTime(parkingConfig.txTTL));
         /** TODO: 计费核心 --> 根据计算出来的计费时间段,优惠时长,时长账户,进行最终的时长计算 */
-        chargeInfos = ChargeHandler.genChargeInfo(chargeFrameInfos, chargeMinutes, discountedMinutes, balancedMinutes());
+        chargeInfos = ChargeHandler.genChargeInfo(chargeFrameInfos, chargeMinutes, discountedMinutes, 0);
 
         sumTotalAmount();
         updateForMultiMax(carContext, periods);
         updateForExtra(carContext);
         updateForDiscount();
-        updateForWallet(carContext, Util.expireTime(parkingConfig.txTTL));
     }
 
     public boolean payable() {
         return receivedAmount > 0
-               || discountInfo != null
-               || (timeBalanceSnapshot != null && timeBalanceSnapshot.effective())
-               || (walletSnapshot != null && walletSnapshot.effective());
+               || discountInfo != null;
     }
 
     public boolean expired() {
@@ -248,17 +240,13 @@ public class ParkingOrder {
         if (discountInfo != null) {
             discountInfo.use();
         }
-        carContext.clear();
     }
-
     public int effectiveAmount() {
-        int walletAmount = walletSnapshot != null ? walletSnapshot.value : 0;
+        int walletAmount =  0;
         return receivedAmount + walletAmount;
     }
-
     public int effectiveAmount(long begin, long end) {
-        int walletAmount = walletSnapshot != null ? walletSnapshot.value : 0;
-        int amount1 = receivedAmount + walletAmount;
+        int amount1 = receivedAmount;
         int amount2 = 0;
         if (amount1 > 0) {
             for (ChargeInfo ci: chargeInfos) {
@@ -358,7 +346,7 @@ public class ParkingOrder {
         CarType tempCarType = null;
         // add carGroup expired and carType change.
         if (Objects.nonNull(carContext.getProtocol().expiredCarTypeId)) {
-            tempCarType = CarType.findById(new ObjectId(carContext.getProtocol().expiredCarTypeId));
+            tempCarType = CarType.findById(carContext.getProjectNo(), new ObjectId(carContext.getProtocol().expiredCarTypeId));
         }
         ObjectId tempCarTypeId = tempCarType.id;
         ObjectId groupTypeId = carContext.getGroupType().id;
@@ -430,24 +418,24 @@ public class ParkingOrder {
      * @param tempCarTypeId
      * @return
      */
-    private LinkedList<ChargePeriod> buildChargePeriods(LinkedList<Frame> unpaidFrames, ObjectId tempCarTypeId) {
+    private LinkedList<ChargePeriod> buildChargePeriods(String projectNo, LinkedList<Frame> unpaidFrames, ObjectId tempCarTypeId) {
         LinkedList<ChargePeriod> periods = new LinkedList<>();
         for (Frame frame: unpaidFrames) {
             Calendar beginCalendar = Util.dateToCalendar(frame.beginEvent.eventTime);
             Calendar endCalendar = Util.dateToCalendar(frame.endEvent.eventTime);
 
-            ObjectId beginDateTypeId = ChargeCalender.getDateTypeIdByCalender(beginCalendar);
-            if (tempCarTypeId != null && CarType.tempType(frame.carTypeId)) {
+            ObjectId beginDateTypeId = ChargeCalender.getDateTypeIdByCalender(projectNo, beginCalendar);
+            if (tempCarTypeId != null && CarType.tempType(projectNo, frame.carTypeId)) {
                 frame.carTypeId = tempCarTypeId;
             }
 
-            CarType carType = CarType.findById(frame.carTypeId);
+            CarType carType = CarType.findById(projectNo, frame.carTypeId);
             frame.chargeTypeId = carType.findChargeTypeId(frame.parkingShared, frame.subAreaId, beginDateTypeId);
 
             for (Calendar preDay = beginCalendar, nextDay = Util.nextDay(preDay);
                  Util.dayCompare(nextDay, endCalendar) <= 0;
                  preDay = nextDay, nextDay = Util.nextDay(preDay)) {
-                ObjectId nextDateTypeId = ChargeCalender.getDateTypeIdByCalender(nextDay);
+                ObjectId nextDateTypeId = ChargeCalender.getDateTypeIdByCalender(projectNo, nextDay);
                 ObjectId nextChargeTypeId = carType.findChargeTypeId(frame.parkingShared, frame.subAreaId, nextDateTypeId);
                 if (nextChargeTypeId.equals(frame.chargeTypeId)) {
                     continue;
@@ -462,17 +450,6 @@ public class ParkingOrder {
             periods.addLast(new ChargePeriod(frame.beginEvent.eventTime, frame.endEvent.eventTime, frame.chargeTypeId));
         }
         return periods;
-    }
-
-    /**
-     * TODO:  时长账户操作 --> 先判断优惠时长,然后根据是否有时长账户信息,如果有的话先暂时存储
-     * @param carContext
-     * @param expireTime
-     */
-    private void prepareTimeDeduction(CarContext carContext, int chargeMinutes, long expireTime) {
-        discountedMinutes = discountInfo != null ? discountInfo.discountedTime() : 0;
-        int m = chargeMinutes - Integer.min(chargeMinutes, discountedMinutes);
-        timeBalanceSnapshot = m > 0 ? carContext.reserveTimeBalance(m, expireTime, projectNo) : null;
     }
 
     private void sumTotalAmount() {
@@ -585,7 +562,7 @@ public class ParkingOrder {
                                     for (ParkingOrder parkingOrder : parkingOrders) {
                                         if (parkingOrder.beginTime >= entryCycleBegin && parkingOrder.endTime <= entryCycleEnd) {
                                             tmpEntryParkingMinutes += parkingOrder.parkingMinutes;
-                                            if (Objects.nonNull(parkingOrder.walletSnapshot) || Objects.nonNull(parkingOrder.discountInfo)) {
+                                            if (Objects.nonNull(parkingOrder.discountInfo)) {
                                                 tmpEntryDueAmount += parkingOrder.totalAmount;
                                             } else {
                                                 tmpEntryDueAmount += parkingOrder.dueAmount;
@@ -630,7 +607,7 @@ public class ParkingOrder {
                                     if (parkingOrder.beginTime >= addCycleBegin && parkingOrder.endTime <= addCycleEnd) {
                                         tmpTotalParkingMinutes += parkingOrder.parkingMinutes;
                                         // 进出场时间全在周期内所以费用可以直接累加
-                                        if (Objects.nonNull(parkingOrder.walletSnapshot) || Objects.nonNull(parkingOrder.discountInfo)) {
+                                        if (Objects.nonNull(parkingOrder.discountInfo)) {
                                            tmpTotalDueAmount += parkingOrder.totalAmount;
                                         } else {
                                             tmpTotalDueAmount += parkingOrder.dueAmount;
@@ -731,19 +708,8 @@ public class ParkingOrder {
         }
     }
 
-    private void updateForWallet(CarContext carContext, long expireTime) {
-        if (dueAmount > 0) {
-            walletSnapshot = carContext.reserveWallet(dueAmount, expireTime, projectNo);
-            dueAmount -= walletSnapshot != null ? Integer.min(walletSnapshot.value, dueAmount) : 0;
-        }
-    }
-
     private boolean withinBestBefore(long time) {
         return bestBefore != null && time <= bestBefore;
-    }
-
-    private int balancedMinutes() {
-        return timeBalanceSnapshot != null ? timeBalanceSnapshot.value : 0;
     }
 
     @Override
@@ -753,8 +719,7 @@ public class ParkingOrder {
                ", beginTime=" + beginTime + ", endTime=" + endTime + ", nextAggregateBeginTime=" +
                nextAggregateBeginTime + ", aggregatedMaxAmount=" + aggregatedMaxAmount + ", parkingMinutes=" +
                parkingMinutes + ", discountInfo=" + discountInfo + ", chargeInfos=" + chargeInfos + ", totalAmount=" +
-               totalAmount + ", timeBalanceSnapshot=" + timeBalanceSnapshot + ", walletSnapshot=" + walletSnapshot +
-               ", discountedMinutes=" + discountedMinutes + ", discountedAmount=" + discountedAmount +
+               totalAmount  + ", discountedMinutes=" + discountedMinutes + ", discountedAmount=" + discountedAmount +
                ", historyOrderTraceInfo=" + historyOrderTraceInfo + ", chargeAmount=" + chargeAmount +
                ", extraAmount=" + extraAmount + ", dueAmount=" + dueAmount + ", chargeDueAmount=" + chargeDueAmount +
                 ", paidAmount=" + paidAmount + ", payChannel='" + payChannel + '\'' + ", payType=" + payType +

@@ -13,11 +13,12 @@ import static net.suparking.chargeserver.exception.ErrorCode.EXCEPTION_DATA_METH
 @Component("online_charge_type_data_handler")
 public class ChargeTypeDataHandler extends BasicDataHandler {
     public static class ChargeTypeRemove extends BasicMQData {
+        public String projectNo;
         public Object data;
 
         @Override
         public String toString() {
-            return "ChargeTypeRemove{" + "data=" + data + "} " + super.toString();
+            return "ChargeTypeRemove{" + "projectNo" + projectNo + "data=" + data + "} " + super.toString();
         }
     }
 
@@ -56,7 +57,7 @@ public class ChargeTypeDataHandler extends BasicDataHandler {
                 ChargeTypeRemove remove = mapper.readValue(message, ChargeTypeRemove.class);
                 List<ObjectId> ids = readAsObject(remove.data, mapper.getType(List.class, ObjectId.class));
                 for (ObjectId id: ids) {
-                    ChargeType.unloadById(id);
+                    ChargeType.unloadById(remove.projectNo, id);
                 }
                 break;
             default:

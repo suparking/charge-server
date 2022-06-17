@@ -14,11 +14,12 @@ import static net.suparking.chargeserver.exception.ErrorCode.EXCEPTION_DATA_METH
 @Component("date_type_data_handler")
 public class DateTypeDataHandler extends BasicDataHandler {
     public static class DateTypeRemove extends BasicMQData {
+        public String projectNo;
         public Object data;
 
         @Override
         public String toString() {
-            return "DateTypeRemove{" + "data=" + data + "} " + super.toString();
+            return "DateTypeRemove{" + "projectNo=" + projectNo + "data=" + data + "} " + super.toString();
         }
     }
 
@@ -57,7 +58,7 @@ public class DateTypeDataHandler extends BasicDataHandler {
                 DateTypeRemove dateTypeRemove = mapper.readValue(message, DateTypeRemove.class);
                 List<ObjectId> ids = readAsObject(dateTypeRemove.data, mapper.getType(List.class, ObjectId.class));
                 for (ObjectId id: ids) {
-                    DateType.unloadById(id);
+                    DateType.unloadById(dateTypeRemove.projectNo, id);
                 }
                 break;
             default:

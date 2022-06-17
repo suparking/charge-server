@@ -5,10 +5,10 @@ import net.suparking.chargeserver.ApplicationProperties;
 import net.suparking.chargeserver.ChargeServerApplication;
 import net.suparking.chargeserver.car.MultiParkingUnit;
 import net.suparking.chargeserver.charge.AmountPerUnits;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.ObjectUtils;
-import org.springframework.util.StringUtils;
 
 import java.text.DecimalFormat;
 import java.text.ParsePosition;
@@ -506,7 +506,7 @@ public class Util {
     public static List<Long> timeToSecond(final Date currentDate, final String addBegin, final String addEnd) {
         if (!ObjectUtils.isEmpty(addBegin) && !ObjectUtils.isEmpty(addEnd)) {
             List<String> result =  connectDateTime(currentDate, addBegin, addEnd);
-            if (!StringUtils.isEmpty(result.get(0)) && !StringUtils.isEmpty(result.get(1))) {
+            if (StringUtils.isNotEmpty(result.get(0)) && StringUtils.isNotEmpty(result.get(1))) {
                 log.info("累加时间段，拼接之后针对当前周期时间为:" + result.get(0) + " " + result.get(1));
                 List<Long> currentDateSeconds = new ArrayList<>(2);
                 currentDateSeconds.add(Util.currentSimpleMillis(result.get(0)));
@@ -560,7 +560,7 @@ public class Util {
         // 字段合法性判断
         if (!ObjectUtils.isEmpty(usedStartTime) && !ObjectUtils.isEmpty(usedEndTime)) {
             List<String> result = connectDateTime(Util.currentTime(),usedStartTime, usedEndTime);
-            if (!StringUtils.isEmpty(result.get(0)) && !StringUtils.isEmpty(result.get(1))) {
+            if (StringUtils.isNotEmpty(result.get(0)) && StringUtils.isNotEmpty(result.get(1))) {
                 log.info("判断使用时间段,拼接之后时间:" + result.get(0) + "," + result.get(1));
                 // 将组织新新时间进行比较
                 long usedStartSeconds = Util.currentSimpleMillis(result.get(0));
@@ -581,7 +581,7 @@ public class Util {
     public static boolean unMatchForceOpenExpiredTime(final String startTime, final String endTime) {
         if (!ObjectUtils.isEmpty(startTime) && !ObjectUtils.isEmpty(endTime)) {
             List<String> result = connectDateTime(Util.currentTime(),startTime, endTime);
-            if (!StringUtils.isEmpty(result.get(0)) && !StringUtils.isEmpty(result.get(1))) {
+            if (StringUtils.isNotEmpty(result.get(0)) && StringUtils.isNotEmpty(result.get(1))) {
                 log.info("强制开闸判断使用时间段,拼接之后时间:" + result.get(0) + "," + result.get(1));
                 // 将组织新新时间进行比较
                 long usedStartSeconds = Util.currentSimpleMillis(result.get(0));

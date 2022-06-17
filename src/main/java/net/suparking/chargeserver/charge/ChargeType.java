@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection = "charge_type")
+@Document(collection = "online_charge_type")
 public class ChargeType extends FieldValidator {
     @Id
     public ObjectId id;
@@ -30,16 +30,16 @@ public class ChargeType extends FieldValidator {
         chargeTypeRepository.reload(chargeType);
     }
 
-    public static void unloadById(ObjectId id) {
-        chargeTypeRepository.unloadById(id);
+    public static void unloadById(String projectNo, ObjectId id) {
+        chargeTypeRepository.unloadById(projectNo, id);
     }
 
-    public static ChargeType findById(ObjectId id) {
-        return chargeTypeRepository.findById(id);
+    public static ChargeType findById(String projectNo, ObjectId id) {
+        return chargeTypeRepository.findById(projectNo, id);
     }
 
-    public static ChargeType findByDefault() {
-        return chargeTypeRepository.findByDefault();
+    public static ChargeType findByDefault(String projectNo) {
+        return chargeTypeRepository.findByDefault(projectNo);
     }
 
     private static ChargeTypeRepository chargeTypeRepository = ChargeServerApplication.getBean(

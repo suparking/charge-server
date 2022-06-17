@@ -3,6 +3,7 @@ package net.suparking.chargeserver.parking;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import net.suparking.chargeserver.car.CarContext;
 import net.suparking.chargeserver.car.Recog;
 import net.suparking.chargeserver.common.CarTypeClass;
@@ -30,6 +31,7 @@ import static net.suparking.chargeserver.parking.ParkingState.PAY_WAIT;
 @Data
 @Builder
 @AllArgsConstructor
+@NoArgsConstructor
 public class Parking {
     // 停车记录id
      public String id;
@@ -96,7 +98,6 @@ public class Parking {
     public String modifier;
     public Long modifyTime;
     private static final Logger log = LoggerFactory.getLogger(Parking.class);
-    public Parking() {}
 
     public Parking(Recog recog, CarContext carContext, ParkingConfig parkingConfig) {
         this.parkId = recog.getParkId().toString();
@@ -141,7 +142,7 @@ public class Parking {
      * @return
      */
     public ParkingOrder queryOrder(final DiscountInfo discountInfo, ObjectId tempCarTypeId) {
-        CarContext carContext = CarContext.findCarContext(userId);
+        CarContext carContext = CarContext.findCarContext(projectNo, userId);
         ParkingOrder parkingOrder = new ParkingOrder(this, carContext);
         //  TODO: 离场费用计费如果付费端没有指定优惠劵,那么会查询是否存在绑定劵,如果存在则使用
         parkingOrder.discountInfo = discountInfo;

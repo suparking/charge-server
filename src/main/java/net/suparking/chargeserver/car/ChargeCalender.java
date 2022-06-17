@@ -23,6 +23,9 @@ public class ChargeCalender extends FieldValidator {
     @ParamNotNull
     public ObjectId dateTypeId;
 
+    @ParamNotNull
+    public String projectNo;
+
     public static void reloadAll() {
         chargeCalenderDateRepository.reloadAll();;
     }
@@ -31,29 +34,29 @@ public class ChargeCalender extends FieldValidator {
         chargeCalenderDateRepository.reloadCalender(chargeCalender);
     }
 
-    public static void unloadById(ObjectId id) {
-        chargeCalenderDateRepository.unloadCalenderById(id);
+    public static void unloadById(String projectNo, ObjectId id) {
+        chargeCalenderDateRepository.unloadCalenderById(projectNo, id);
     }
 
-    public static ObjectId getDateTypeIdByCalender(Calendar calendar) {
-        return chargeCalenderDateRepository.getDateTypeIdByCalender(calendar);
+    public static ObjectId getDateTypeIdByCalender(String projectNo, Calendar calendar) {
+        return chargeCalenderDateRepository.getDateTypeIdByCalender(projectNo, calendar);
     }
 
-    public static ObjectId getDateTypeByEpoch(long time) {
-        return chargeCalenderDateRepository.getDateTypeIdByEpoch(time);
+    public static ObjectId getDateTypeByEpoch(String projectNo, long time) {
+        return chargeCalenderDateRepository.getDateTypeIdByEpoch(projectNo, time);
     }
 
-    public static ObjectId getDateTypeIdByYearMonthDay(int year, int month, int day) {
-        return chargeCalenderDateRepository.getDateTypeIdByYearMonthDay(year, month, day);
+    public static ObjectId getDateTypeIdByYearMonthDay(String projectNo, int year, int month, int day) {
+        return chargeCalenderDateRepository.getDateTypeIdByYearMonthDay(projectNo, year, month, day);
     }
 
-    private static ChargeCalenderDateRepository chargeCalenderDateRepository = ChargeServerApplication.getBean(
+    private static final ChargeCalenderDateRepository chargeCalenderDateRepository = ChargeServerApplication.getBean(
             "ChargeCalenderDateRepositoryImpl", ChargeCalenderDateRepository.class);
 
 
     @Override
     public String toString() {
         return "ChargeCalender{" + "id='" + id + '\'' + ", year=" + year + ", month=" + month + ", day=" + day +
-               ", weekday=" + weekday + ", dateTypeId='" + dateTypeId + '\'' + '}';
+               ", weekday=" + weekday + ", dateTypeId='" + dateTypeId + ", projectNo='" + projectNo + '\'' + '}';
     }
 }

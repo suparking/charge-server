@@ -1,12 +1,12 @@
 package net.suparking.chargeserver.exception;
 
-import net.suparking.server.ServerApplication;
+import net.suparking.chargeserver.ChargeServerApplication;
 
 public class ServerException extends RuntimeException {
     private String code;
     private String msg;
 
-    private static ErrorMsgRepository errorMsgRepository = ServerApplication.getBean(
+    private static ErrorMsgRepository errorMsgRepository = ChargeServerApplication.getBean(
             "ErrorMsgRepositoryImpl", ErrorMsgRepository.class);
 
     public ServerException(String code) {

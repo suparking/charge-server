@@ -82,7 +82,7 @@ public class MQCloudConfiguration {
     //云交换机
     @Bean("MQCloudExchange")
     public TopicExchange cloudExchange(@Qualifier("MQCloudAMQPAdmin")AmqpAdmin admin) {
-        TopicExchange exchange = new TopicExchange("spk.down");
+        TopicExchange exchange = new TopicExchange("spk.shared");
         exchange.setShouldDeclare(false);
         return exchange;
     }
@@ -106,7 +106,7 @@ public class MQCloudConfiguration {
     public Binding cloudBinding(@Qualifier("MQCloudAMQPAdmin")AmqpAdmin admin,
                                 @Qualifier("MQCloudQueue")Queue queue,
                                 @Qualifier("MQCloudExchange")TopicExchange exchange) {
-        Binding binding = BindingBuilder.bind(queue).to(exchange).with("*.charge.#");
+        Binding binding = BindingBuilder.bind(queue).to(exchange).with("*.shared.#");
         binding.setAdminsThatShouldDeclare(admin);
         binding.setShouldDeclare(true);
         return binding;

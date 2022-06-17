@@ -1,10 +1,16 @@
 package net.suparking.chargeserver.parking;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import net.suparking.chargeserver.car.CarGroupTraceInfo;
 import org.bson.types.ObjectId;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ParkingTrigger {
     // 设备驶入ID
     public String recogId;
@@ -38,7 +44,4 @@ public class ParkingTrigger {
     public CarGroupTraceInfo carGroupTraceInfo;
     public String operator;
     public String remark;
-
-    public ParkingTrigger() {}
-
 }

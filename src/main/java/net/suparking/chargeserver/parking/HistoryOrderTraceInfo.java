@@ -1,6 +1,6 @@
 package net.suparking.chargeserver.parking;
 
-import net.suparking.server.util.Util;
+import net.suparking.chargeserver.util.Util;
 
 import java.util.LinkedList;
 

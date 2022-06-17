@@ -16,13 +16,18 @@ import org.springframework.stereotype.Repository;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Order(130)
 @Repository("ChargeTypeRepositoryImpl")
 public class ChargeTypeRepositoryImpl extends BasicRepositoryImpl
         implements ChargeTypeRepository, CommandLineRunner {
-    private List<ChargeType> chargeTypes = new LinkedList<>();
-    private ChargeType defaultChargeType;
+
+    private final Map<String, List<ChargeType>> chargeTypesMap = new ConcurrentHashMap<>(10);
+
+    private final Map<String,ChargeType> defaultChargeTypeMap = new ConcurrentHashMap<>(10);
 
     private static final Logger log = LoggerFactory.getLogger(ChargeTypeRepositoryImpl.class);
 
@@ -38,41 +43,44 @@ public class ChargeTypeRepositoryImpl extends BasicRepositoryImpl
             log.info(ct.toString());
             reload(ct);
         }
-        resetDefault();
     }
 
     @Override
     public synchronized void reload(ChargeType chargeType) {
         if (chargeType.validate()) {
-            unloadById(chargeType.id);
+            unloadById(chargeType.projectNo, chargeType.id);
             load(chargeType);
-            resetDefault();
+            resetDefault(chargeType.projectNo);
         } else {
             log.error("ChargeType " + chargeType.id.toString() + " validate failed");
         }
     }
 
     @Override
-    public synchronized void unloadById(ObjectId id) {
-        chargeTypes.removeIf(chargeType -> chargeType.id.equals(id));
-        resetDefault();
+    public synchronized void unloadById(String projectNo, ObjectId id) {
+        List<ChargeType> chargeTypes = getChargeTypes(projectNo);
+        if (Objects.nonNull(chargeTypes)) {
+            chargeTypes.removeIf(chargeType -> chargeType.id.equals(id));
+            chargeTypesMap.put(projectNo, chargeTypes);
+        }
+        resetDefault(projectNo);
     }
 
     @Override
-    public synchronized ChargeType findById(ObjectId id) {
-        List<ChargeType> ctList = chargeTypes;
+    public synchronized ChargeType findById(String projectNo, ObjectId id) {
+        List<ChargeType> ctList = getChargeTypes(projectNo);
         for (ChargeType ct: ctList) {
             if (ct.id.equals(id)) {
                 return ct;
             }
         }
         log.warn("There is no ChargeType for id " + id.toString());
-        return defaultChargeType;
+        return defaultChargeTypeMap.get(projectNo);
     }
 
     @Override
-    public synchronized ChargeType findByDefault() {
-        return defaultChargeType;
+    public synchronized ChargeType findByDefault(String projectNo) {
+        return defaultChargeTypeMap.get(projectNo);
     }
 
     @Override
@@ -82,23 +90,38 @@ public class ChargeTypeRepositoryImpl extends BasicRepositoryImpl
     }
 
     private void load(ChargeType chargeType) {
-        chargeTypes.add(chargeType);
+        if (chargeTypesMap.containsKey(chargeType.projectNo)) {
+            chargeTypesMap.get(chargeType.projectNo).add(chargeType);
+        } else {
+            List<ChargeType> chargeTypes = new LinkedList<>();
+            chargeTypes.add(chargeType);
+            chargeTypesMap.put(chargeType.projectNo, chargeTypes);
+        }
     }
 
-    private void resetDefault() {
-        defaultChargeType = null;
-        for (ChargeType ct: chargeTypes) {
-            if (ct.defaultType) {
-                defaultChargeType = ct;
-                break;
+    private List<ChargeType> getChargeTypes(String projectNo) {
+        return chargeTypesMap.get(projectNo);
+    }
+    private void resetDefault(String projectNo) {
+        List<ChargeType> chargeTypes = getChargeTypes(projectNo);
+        ChargeType defaultChargeType = null;
+        if (Objects.nonNull(chargeTypes)) {
+            for (ChargeType ct: chargeTypes) {
+                if (ct.defaultType) {
+                    defaultChargeType = ct;
+                    break;
+                }
             }
         }
+
         if (defaultChargeType == null) {
             defaultChargeType = new ChargeType();
             defaultChargeType.id = new ObjectId();
             defaultChargeType.chargeTypeName = "default";
             defaultChargeType.chargeRule = new ChargeRule();
             defaultChargeType.defaultType = true;
+            defaultChargeType.projectNo = projectNo;
         }
+        defaultChargeTypeMap.put(projectNo, defaultChargeType);
     }
 }

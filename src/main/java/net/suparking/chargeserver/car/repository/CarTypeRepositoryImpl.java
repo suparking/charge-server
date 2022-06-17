@@ -2,7 +2,6 @@ package net.suparking.chargeserver.car.repository;
 
 import net.suparking.chargeserver.car.CarType;
 import net.suparking.chargeserver.car.CarTypeRepository;
-import net.suparking.chargeserver.car.PlateNoRule;
 import net.suparking.chargeserver.charge.ChargeType;
 import net.suparking.chargeserver.common.CarTypeClass;
 import net.suparking.chargeserver.repository.BasicRepositoryImpl;
@@ -16,46 +15,22 @@ import org.springframework.core.annotation.Order;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-
-class SpecialCarType {
-    private LinkedList<CarType> carTypes = new LinkedList<>();
-
-    void removeById(ObjectId id) {
-        carTypes.removeIf(carType -> carType.id.equals(id));
-    }
-
-    public void add(CarType carType) {
-        carTypes.addLast(carType);
-    }
-
-    CarType match(String plateNo) {
-        int min = -1;
-        CarType carType = null;
-        for (CarType ct: carTypes) {
-            int idx = ct.matchIndex(plateNo);
-            if (idx >= 0) {
-                if (min < 0 || min > idx) {
-                    min = idx;
-                    carType = ct;
-                }
-            }
-        }
-        return carType;
-    }
-}
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Order(150)
 @Repository("CarTypeRepositoryImpl")
 public class CarTypeRepositoryImpl extends BasicRepositoryImpl implements CarTypeRepository, CommandLineRunner {
-    private List<CarType> carTypes = new LinkedList<>();
-    private CarType defaultCarType;
-    private List<CarType> tempCarTypes = new LinkedList<>();
-    private HashMap<Integer, SpecialCarType> exactTypeMap = new HashMap<>();
-    private HashMap<Integer, SpecialCarType> fuzzyTypeMap = new HashMap<>();
-    private List<CarType> contractedCarTypes = new LinkedList<>();
+
+    private final Map<String, List<CarType>> carTypesMap = new ConcurrentHashMap<>(10) ;
+
+    private final Map<String, CarType> defaultCarTypeMap = new ConcurrentHashMap<>(10);
+    private final Map<String, List<CarType>> tempCarTypesMap = new ConcurrentHashMap<>(10);
+
+    private final Map<String, List<CarType>> contractedCarTypesMap = new ConcurrentHashMap<>(10);
 
     private static final Logger log = LoggerFactory.getLogger(CarTypeRepositoryImpl.class);
 
@@ -71,77 +46,65 @@ public class CarTypeRepositoryImpl extends BasicRepositoryImpl implements CarTyp
             log.info(ct.toString());
             reload(ct);
         }
-        resetDefault();
     }
 
     @Override
     public synchronized void reload(CarType carType) {
         if (carType.validate()) {
-            unloadById(carType.id);
+            unloadById(carType.projectNo, carType.id);
             load(carType);
-            resetDefault();
+            resetDefault(carType.projectNo);
         } else {
             log.error("CarType " + carType.id.toString() + " validate failed");
         }
     }
 
     @Override
-    public synchronized void unloadById(ObjectId id) {
-        carTypes.removeIf(carType -> carType.id.equals(id));
-        tempCarTypes.removeIf(carType -> carType.id.equals(id));
-        for (SpecialCarType specialCarType: exactTypeMap.values()) {
-            specialCarType.removeById(id);
+    public synchronized void unloadById(String projectNo, ObjectId id) {
+        List<CarType> carTypes = getCarTypes(projectNo);
+        if (Objects.nonNull(carTypes)) {
+            carTypes.removeIf(carType -> carType.id.equals(id));
+            carTypesMap.put(projectNo, carTypes);
         }
-        for (SpecialCarType specialCarType: fuzzyTypeMap.values()) {
-            specialCarType.removeById(id);
+
+        List<CarType> tempCarTypes = getTempCarTypes(projectNo);
+        if (Objects.nonNull(tempCarTypes)) {
+            tempCarTypes.removeIf(carType -> carType.id.equals(id));
+            tempCarTypesMap.put(projectNo, tempCarTypes);
         }
-        contractedCarTypes.removeIf(carType -> carType.id.equals(id));
-        resetDefault();
+
+        List<CarType> contractedCarTypes = getContractCarTypes(projectNo);
+        if (Objects.nonNull(contractedCarTypes)) {
+            contractedCarTypes.removeIf(carType -> carType.id.equals(id));
+            contractedCarTypesMap.put(projectNo, contractedCarTypes);
+        }
+
+
+        resetDefault(projectNo);
     }
 
     @Override
-    public synchronized CarType findById(ObjectId id) {
-        for (CarType ct: carTypes) {
-            if (ct.id.equals(id)) {
-                return ct;
+    public synchronized CarType findById(String projectNo, ObjectId id) {
+        List<CarType> carTypes = getCarTypes(projectNo);
+        if (Objects.nonNull(carTypes)) {
+            for (CarType ct: carTypes) {
+                if (ct.id.equals(id)) {
+                    return ct;
+                }
             }
         }
         log.warn("There is no CarType entity for id " + id.toString());
-        return defaultCarType;
+        return defaultCarTypeMap.get(projectNo);
     }
 
     @Override
-    public CarType findByUserId(String userId) {
-        if (userId.isEmpty()) {
-            return defaultCarType;
-        }
-
-        CarType carType;
-        SpecialCarType specialCarType;
-        for (int length = userId.length(); length > 0; --length) {
-            if ((specialCarType = exactTypeMap.get(length)) != null) {
-                if ((carType = specialCarType.match(userId)) != null) {
-                    return carType;
+    public synchronized boolean tempType(final String projectNo, final ObjectId id) {
+        List<CarType> contractedCarTypes = getContractCarTypes(projectNo);
+        if (Objects.nonNull(contractedCarTypes)) {
+            for (CarType ct: contractedCarTypes) {
+                if (ct.id.equals(id)) {
+                    return false;
                 }
-            }
-        }
-        for (int length = userId.length(); length > 0; --length) {
-            if ((specialCarType = fuzzyTypeMap.get(length)) != null) {
-                if ((carType = specialCarType.match(userId)) != null) {
-                    return carType;
-                }
-            }
-        }
-
-        log.warn("There is no CarType entity for [" + userId + "]");
-        return defaultCarType;
-    }
-
-    @Override
-    public synchronized boolean tempType(ObjectId id) {
-        for (CarType ct: contractedCarTypes) {
-            if (ct.id.equals(id)) {
-                return false;
             }
         }
         return true;
@@ -155,39 +118,79 @@ public class CarTypeRepositoryImpl extends BasicRepositoryImpl implements CarTyp
 
     private void load(CarType carType) {
         if (carType.carTypeClass.equals(CarTypeClass.TEMP)) {
-            tempCarTypes.add(carType);
-        } else if (carType.carTypeClass.equals(CarTypeClass.SPECIAL)) {
-            PlateNoRule plateNoRule = carType.plateNoRule;
-            if (plateNoRule.exactMatch()) {
-                exactTypeMap.putIfAbsent(plateNoRule.key.length(), new SpecialCarType());
-                exactTypeMap.get(plateNoRule.key.length()).add(carType);
-            } else if (plateNoRule.fuzzyMatch()) {
-                fuzzyTypeMap.putIfAbsent(plateNoRule.key.length(), new SpecialCarType());
-                fuzzyTypeMap.get(plateNoRule.key.length()).add(carType);
-            }
+           loadTempCarType(carType);
         } else if (carType.carTypeClass.equals(CarTypeClass.CONTRACTED)) {
-            contractedCarTypes.add(carType);
+            loadContractedCarType(carType);
         }
-        carTypes.add(carType);
+        loadCarType(carType);
     }
 
-    private void resetDefault() {
-        defaultCarType = null;
-        for (CarType ct: carTypes) {
-            if (ct.defaultType) {
-                defaultCarType = ct;
-                break;
+    private void loadCarType(final CarType carType) {
+        if (carTypesMap.containsKey(carType.projectNo)) {
+            carTypesMap.get(carType.projectNo).add(carType);
+        } else {
+            List<CarType> carTypes = new LinkedList<>();
+            carTypes.add(carType);
+            carTypesMap.put(carType.projectNo, carTypes);
+        }
+    }
+
+    private void loadTempCarType(final CarType carType) {
+        if (tempCarTypesMap.containsKey(carType.projectNo)) {
+            tempCarTypesMap.get(carType.projectNo).add(carType);
+        } else {
+            List<CarType> tempCarTypes = new LinkedList<>();
+            tempCarTypes.add(carType);
+            tempCarTypesMap.put(carType.projectNo, tempCarTypes);
+        }
+    }
+
+    private void loadContractedCarType(final CarType carType) {
+        if (contractedCarTypesMap.containsKey(carType.projectNo)) {
+            contractedCarTypesMap.get(carType.projectNo).add(carType);
+        } else {
+            List<CarType> contractedCarTypes = new LinkedList<>();
+            contractedCarTypes.add(carType);
+            contractedCarTypesMap.put(carType.projectNo, contractedCarTypes);
+        }
+    }
+
+    private List<CarType> getCarTypes(final String projectNo) {
+        return carTypesMap.get(projectNo);
+    }
+
+    private List<CarType> getTempCarTypes(final String projectNo) {
+        return tempCarTypesMap.get(projectNo);
+    }
+
+    private List<CarType> getContractCarTypes(final String projectNo) {
+        return contractedCarTypesMap.get(projectNo);
+    }
+
+
+    private void resetDefault(final String projectNo) {
+        CarType defaultCarType = null;
+        List<CarType> carTypes = getCarTypes(projectNo);
+        if (Objects.nonNull(carTypes)) {
+            for (CarType ct: carTypes) {
+                if (ct.defaultType) {
+                    defaultCarType = ct;
+                    break;
+                }
             }
         }
+
         if (defaultCarType == null) {
             defaultCarType = new CarType();
             defaultCarType.id = new ObjectId();
             defaultCarType.carTypeClass = CarTypeClass.TEMP;
             defaultCarType.carTypeName = "default";
             defaultCarType.carTypeAlias = "default";
-            defaultCarType.defaultChargeTypeId = ChargeType.findByDefault().id;
+            defaultCarType.defaultChargeTypeId = ChargeType.findByDefault(projectNo).id;
             defaultCarType.chargeStrategies = new LinkedList<>();
             defaultCarType.defaultType = true;
+            defaultCarType.projectNo = projectNo;
         }
+        defaultCarTypeMap.put(projectNo, defaultCarType);
     }
 }

@@ -22,8 +22,6 @@ public class CarContext {
     private CarType carType;
     private CarGroup carGroup;
     private CarType groupType;
-    private TimeBalanceAccount timeBalanceAccount;
-    private WalletAccount walletAccount;
     private Protocol protocol;
     private SpecialType specialType;
 
@@ -36,31 +34,23 @@ public class CarContext {
      * @param userId
      * @return
      */
-    public static CarContext findCarContext(String userId) {
+    public static CarContext findCarContext(String projectNo, String userId) {
         CarContext carContext = new CarContext();
         carContext.userId = userId;
 
         if (!userId.isEmpty()) {
-            if (Whitelist.isInWhitelist(userId)) {
-                carContext.specialType = WHITE;
-            } else if (Blacklist.isInBlacklist(userId)) {
-                carContext.specialType = BLACK;
-            }
-
             CarGroup carGroup = CarGroup.findByUserId(userId);
             if (carGroup != null) {
                 if ((carContext.protocol = Protocol.findById(carGroup.protocolId)) != null) {
                     carContext.carGroup = carGroup;
-                    carContext.groupType = CarType.findById(carGroup.carTypeId);
+                    carContext.groupType = CarType.findById(projectNo, carGroup.carTypeId);
                     if (carGroup.active()) {
                         carContext.carType = carContext.groupType;
-                        carContext.timeBalanceAccount = TimeBalanceAccount.loadByCarGroup(carGroup);
-                        carContext.walletAccount = WalletAccount.loadByCarGroup(carGroup);
                         return carContext;
                     } else {
                         // add carType change
                         if (Objects.nonNull(carContext.protocol.expiredCarTypeId)) {
-                            carContext.carType = CarType.findById(new ObjectId(carContext.protocol.expiredCarTypeId));
+                            carContext.carType = CarType.findById(projectNo, new ObjectId(carContext.protocol.expiredCarTypeId));
                             log.info(userId + " is out of date for protocol " + carGroup.protocolName +
                                     " carType is Changed" + carContext.carType.carTypeName);
                             return carContext;
@@ -103,46 +93,12 @@ public class CarContext {
         return registered() && carGroup.timeBased();
     }
 
-    public boolean timeBalanceEnabled() {
-        return timeBalanceAccount != null;
-    }
-
-    public boolean walletEnabled() {
-        return walletAccount != null;
-    }
-
     public Integer leftDay() {
         return active() ? carGroup.leftDay() : null;
     }
 
     public Integer spaceQuantity(ObjectId subAreaId) {
         return registered() ? protocol.spaceQuantityInSubArea(subAreaId) : null;
-    }
-
-
-    public TxSnapshot reserveTimeBalance(int value, long expireTime, String projectNo) {
-        return timeBalanceEnabled() ? timeBalanceAccount.reserve(userId, value, expireTime, projectNo) : null;
-    }
-
-    public TxSnapshot reserveWallet(int value, long expireTime, String projectNo) {
-        return walletEnabled() ? walletAccount.reserve(userId, value, expireTime, projectNo) : null;
-    }
-
-    public void clearTimeBalance() {
-        if (timeBalanceAccount != null) {
-            timeBalanceAccount.clear(userId);
-        }
-    }
-
-    public void clearWallet() {
-        if (walletAccount != null) {
-            walletAccount.clear(userId);
-        }
-    }
-
-    public void clear() {
-        clearTimeBalance();
-        clearWallet();
     }
 
     //此处只是根据车辆类型的不计次数规则 得到 开始与结束时间,而不是拿到具体分段时间参数
@@ -224,14 +180,6 @@ public class CarContext {
         return groupType;
     }
 
-    public TimeBalanceAccount getTimeBalanceAccount() {
-        return timeBalanceAccount;
-    }
-
-    public WalletAccount getWalletAccount() {
-        return walletAccount;
-    }
-
     public Protocol getProtocol() {
         return protocol;
     }
@@ -257,14 +205,6 @@ public class CarContext {
 
     public void setGroupType(CarType groupType) {
         this.groupType = groupType;
-    }
-
-    public void setTimeBalanceAccount(TimeBalanceAccount timeBalanceAccount) {
-        this.timeBalanceAccount = timeBalanceAccount;
-    }
-
-    public void setWalletAccount(WalletAccount walletAccount) {
-        this.walletAccount = walletAccount;
     }
 
     public void setProtocol(Protocol protocol) {
