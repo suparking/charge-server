@@ -6,6 +6,7 @@ import net.suparking.chargeserver.cmd.ParkingOrderQueryIn;
 import net.suparking.chargeserver.cmd.ParkingOrderQueryOut;
 import net.suparking.chargeserver.common.CarTypeClass;
 import net.suparking.chargeserver.common.DiscountInfo;
+import net.suparking.chargeserver.common.ValueType;
 import net.suparking.chargeserver.exception.ParamNotNull;
 import net.suparking.chargeserver.mq.BasicMQMessage;
 import net.suparking.chargeserver.mq.BasicMQMessageRet;
@@ -53,7 +54,7 @@ public class ParkingOrderQueryConsumer extends CloudConsumer {
         public Parking convert(final ParkingDO parkingDO) {
             return Parking.builder()
                     .id(parkingDO.getId().toString())
-                    .userId(userInfo.getUserId())
+                    .userId(Long.valueOf(userInfo.getUserId()))
                     .parkId(parkingDO.getParkId())
                     .parkNo(parkingDO.getParkNo())
                     .parkName(parkingDO.getParkName())
@@ -62,9 +63,6 @@ public class ParkingOrderQueryConsumer extends CloudConsumer {
                     .firstEnterTriggerTime(parkingDO.getFirstEnterTriggerTime())
                     .latestTriggerTime(parkingDO.getLatestTriggerTime())
                     .latestTriggerParkId(new ObjectId(parkingDO.getLatestTriggerParkId()))
-                    .latestTriggerTemp(parkingDO.getLatestTriggerTemp().equals(1))
-                    .latestTriggerTypeClass(CarTypeClass.valueOf(parkingDO.getLatestTriggerTypeClass()))
-                    .latestTriggerTypeName(parkingDO.getLatestTriggerTypeName())
                     .parkingEvents(convert(this.parkingEvents))
                     .parkingState(ParkingState.valueOf(parkingDO.getParkingState()))
                     .abnormalReason(parkingDO.getAbnormalReason())
@@ -100,7 +98,7 @@ public class ParkingOrderQueryConsumer extends CloudConsumer {
         public DiscountInfo convert(final DiscountInfoDO discountInfoDO) {
             return DiscountInfo.builder()
                     .discountNo(discountInfoDO.getDiscountNo())
-                    .valueType(discountInfoDO.getValueType())
+                    .valueType(ValueType.valueOf(discountInfoDO.getValueType()))
                     .value(discountInfoDO.getValue())
                     .quantity(discountInfoDO.getQuantity())
                     .usedStartTime(discountInfoDO.getUsedStartTime())

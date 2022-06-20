@@ -43,16 +43,16 @@ public class CarGroup extends FieldValidator {
     public String modifier;
     public Long modifyTime;
 
-    public static CarGroup findByUserId(String userId) {
-        return carGroupRepository.findByUserId(userId);
+    public static CarGroup findByUserId(String projectNo, String userId) {
+        return carGroupRepository.findByProjectNoAndUserId(projectNo, userId);
     }
 
-    public static CarGroup findById(ObjectId id) {
-        return carGroupRepository.findById(id);
+    public static CarGroup findById(String projectNo, ObjectId id) {
+        return carGroupRepository.findByProjectNoAndId(projectNo, id);
     }
 
-    public static List<CarGroup> findByProtocolId(ObjectId id) {
-        return carGroupRepository.findByProtocolId(id);
+    public static List<CarGroup> findByProtocolId(String projectNo, ObjectId id) {
+        return carGroupRepository.findByProjectNoAndProtocolId(projectNo, id);
     }
 
     private static CarGroupRepository carGroupRepository = ChargeServerApplication.getBean(

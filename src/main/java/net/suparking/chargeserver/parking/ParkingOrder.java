@@ -1,5 +1,7 @@
 package net.suparking.chargeserver.parking;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import net.suparking.chargeserver.ChargeServerApplication;
 import net.suparking.chargeserver.car.CarContext;
 import net.suparking.chargeserver.car.CarGroup;
@@ -10,20 +12,29 @@ import net.suparking.chargeserver.car.MaxAmountForMultiParking;
 import net.suparking.chargeserver.car.MultiMaxPolicy;
 import net.suparking.chargeserver.car.MultiParkingUnit;
 import net.suparking.chargeserver.car.Period;
+import net.suparking.chargeserver.charge.ChargeDetail;
 import net.suparking.chargeserver.charge.ChargeFrameInfo;
 import net.suparking.chargeserver.charge.ChargeHandler;
 import net.suparking.chargeserver.charge.ChargeInfo;
 import net.suparking.chargeserver.charge.ChargePeriod;
 import net.suparking.chargeserver.common.CarTypeClass;
 import net.suparking.chargeserver.common.DiscountInfo;
+import net.suparking.chargeserver.common.ValueType;
+import net.suparking.chargeserver.parking.mysql.ChargeDetailDO;
+import net.suparking.chargeserver.parking.mysql.ChargeInfoVO;
+import net.suparking.chargeserver.parking.mysql.DiscountInfoDO;
+import net.suparking.chargeserver.parking.mysql.ParkingOrderVO;
 import net.suparking.chargeserver.project.ParkingConfig;
+import net.suparking.chargeserver.util.HttpUtils;
 import net.suparking.chargeserver.util.Util;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.ObjectUtils;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,11 +43,12 @@ import java.util.Objects;
 import static net.suparking.chargeserver.parking.EventType.EV_CAR_TYPE_CHANGE;
 import static net.suparking.chargeserver.parking.EventType.EV_CHARGE_TYPE_CHANGE;
 import static net.suparking.chargeserver.parking.EventType.EV_PREPAY;
+import static net.suparking.chargeserver.util.ChargeConstants.SUCCESS;
 
 public class ParkingOrder {
     public String orderNo;
     public String payParkingId;
-    public String userId;
+    public Long userId;
     public Boolean tempType;
     public CarTypeClass carTypeClass;
     public String carTypeName;
@@ -82,23 +94,252 @@ public class ParkingOrder {
     public static final String BIND_DISCOUNT_TITLE = "PLN";
 
     private static final Logger log = LoggerFactory.getLogger(ParkingOrder.class);
-    private static ParkingOrderRepository parkingOrderRepository = ChargeServerApplication.getBean(
-            "ParkingOrderRepositoryImpl", ParkingOrderRepository.class);
 
-    public static ParkingOrder findHistoryByPayParkingId(String payParkingId) {
-        return parkingOrderRepository.findHistoryByPayParkingId(payParkingId);
+    private static final SharedProperties sharedProperties = ChargeServerApplication.getBean("SharedProperties", SharedProperties.class);
+
+    public static List<ParkingOrder> findByUserIdsAndBeginTimeOrEndTimeRange(String projectNo, List<String> userIds, long begin, long end) {
+        ParkingQuery parkingQuery = ParkingQuery.builder()
+                .projectNo(projectNo)
+                .userIds(userIds)
+                .begin(begin)
+                .end(end)
+                .build();
+        JSONObject result = HttpUtils.sendPost(sharedProperties.getOrderUrl() + "/parking-order/findByPlateNosAndBeginTimeOrEndTimeRange", JSON.toJSONString(parkingQuery));
+
+        if (Objects.nonNull(result) && result.containsKey("code") && result.getInteger("code").equals(SUCCESS)) {
+            List<ParkingOrderVO> parkingOrderVOList = (List<ParkingOrderVO>) result.get("data");
+            if (parkingOrderVOList.size() > 0) {
+               return convert(parkingOrderVOList);
+            }
+        }
+        return Collections.emptyList();
+
+
     }
 
-    public static List<ParkingOrder> findByPlateNosAndBeginTimeOrEndTimeRange(List<String> userIds, long begin, long end) {
-        return parkingOrderRepository.findByPlateNosAndBeginTimeOrEndTimeRange(userIds, begin, end);
+    /**
+     * ParkingOrderVO -> ParkingOrder.
+     * @param parkingOrderVO {@link ParkingOrderVO}
+     * @return {@link ParkingOrder}
+     */
+    private static ParkingOrder convert(final ParkingOrderVO parkingOrderVO) {
+        ParkingOrder parkingOrder = new ParkingOrder();
+        parkingOrder.orderNo = parkingOrderVO.getOrderNo();
+        parkingOrder.payParkingId = parkingOrderVO.getPayParkingId();
+        parkingOrder.userId = parkingOrderVO.getUserId();
+        parkingOrder.tempType = parkingOrderVO.getTempType().equals(1);
+        parkingOrder.carTypeClass = CarTypeClass.valueOf(parkingOrderVO.getCarTypeClass());
+        parkingOrder.carTypeName = parkingOrderVO.getCarTypeName();
+        parkingOrder.carTypeId = new ObjectId(parkingOrderVO.getCarTypeId());
+        parkingOrder.beginTime = parkingOrderVO.getBeginTime();
+        parkingOrder.endTime = parkingOrderVO.getEndTime();
+        parkingOrder.nextAggregateBeginTime = parkingOrderVO.getNextAggregateBeginTime();
+        parkingOrder.aggregatedMaxAmount = parkingOrderVO.getAggregatedMaxAmount();
+        parkingOrder.parkingMinutes = parkingOrderVO.getParkingMinutes();
+
+        // 增加 优惠券信息,如果存在
+        DiscountInfoDO discountInfoDO = parkingOrderVO.getDiscountInfoDO();
+        if (Objects.nonNull(discountInfoDO)) {
+            DiscountInfo discountInfo = new DiscountInfo();
+            discountInfo.setDiscountNo(discountInfoDO.getDiscountNo());
+            discountInfo.setValueType(ValueType.valueOf(discountInfoDO.getValueType()));
+            discountInfo.setValue(discountInfoDO.getValue());
+            discountInfo.setQuantity(discountInfoDO.getQuantity());
+            discountInfo.setUsedStartTime(discountInfoDO.getUsedStartTime());
+            discountInfo.setUsedEndTime(discountInfoDO.getUsedEndTime());
+            parkingOrder.discountInfo = discountInfo;
+        }
+
+        LinkedList<ChargeInfoVO> chargeInfoVOList = parkingOrderVO.getChargeInfos();
+        if (Objects.nonNull(chargeInfoVOList) && chargeInfoVOList.size() > 0) {
+            LinkedList<ChargeInfo>  chargeInfos = new LinkedList<>();
+            chargeInfoVOList.forEach(chargeInfoVO -> {
+                ChargeInfo chargeInfo = new ChargeInfo();
+                chargeInfo.beginCycleSeq = chargeInfoVO.getBeginCycleSeq();
+                chargeInfo.cycleNumber = chargeInfoVO.getCycleNumber();
+                chargeInfo.parkingMinutes = chargeInfoVO.getParkingMinutes();
+                chargeInfo.balancedMinutes = chargeInfoVO.getBalancedMinutes();
+                chargeInfo.discountedMinutes = chargeInfoVO.getDiscountedMinutes();
+                chargeInfo.totalAmount = chargeInfoVO.getTotalAmount();
+                chargeInfo.extraAmount = chargeInfoVO.getExtraAmount();
+
+
+                LinkedList<ChargeDetailDO> chargeDetailDOList = chargeInfoVO.getChargeDetailDOList();
+                if (Objects.nonNull(chargeDetailDOList) && chargeDetailDOList.size() > 0) {
+                    LinkedList<ChargeDetail> chargeDetails = new LinkedList<>();
+                    chargeDetailDOList.forEach(chargeDetailDO -> {
+                        ChargeDetail chargeDetail = new ChargeDetail();
+                        chargeDetail.chargeTypeName  = chargeDetailDO.getChargeTypeName();
+                        chargeDetail.beginTime = chargeDetailDO.getBeginTime();
+                        chargeDetail.endTime = chargeDetailDO.getEndTime();
+                        chargeDetail.parkingMinutes = chargeDetailDO.getParkingMinutes();
+                        chargeDetail.balancedMinutes = chargeDetailDO.getBalancedMinutes();
+                        chargeDetail.freedMinutes = chargeDetailDO.getFreeMinutes();
+                        chargeDetail.discountedMinutes = chargeDetailDO.getDiscountedMinutes();
+                        chargeDetail.chargingMinutes = chargeDetailDO.getChargingMinutes();
+                        chargeDetail.chargeAmount = chargeDetailDO.getChargeAmount();
+                        chargeDetail.remark = chargeDetailDO.getRemark();
+                        chargeDetails.add(chargeDetail);
+                    });
+                    chargeInfo.chargeDetails = chargeDetails;
+                }
+                chargeInfos.add(chargeInfo);
+            });
+            parkingOrder.chargeInfos = chargeInfos;
+        }
+        parkingOrder.totalAmount = parkingOrderVO.getTotalAmount();
+        parkingOrder.discountedMinutes = parkingOrderVO.getDiscountedMinutes();
+        parkingOrder.discountedAmount = parkingOrderVO.getDiscountedAmount();
+        parkingOrder.chargeAmount = parkingOrderVO.getChargeAmount();
+        parkingOrder.extraAmount = parkingOrderVO.getExtraAmount();
+        parkingOrder.dueAmount = parkingOrderVO.getDueAmount();
+        parkingOrder.chargeDueAmount = parkingOrderVO.getChargeDueAmount();
+        parkingOrder.paidAmount = parkingOrderVO.getPaidAmount();
+        parkingOrder.payChannel = parkingOrderVO.getPayChannel();
+        parkingOrder.payType = PayType.valueOf(parkingOrderVO.getPayType());
+        parkingOrder.payTime = parkingOrderVO.getPayTime();
+        parkingOrder.receivedAmount = parkingOrderVO.getReceivedAmount();
+        parkingOrder.termNo = parkingOrderVO.getTermNo();
+        parkingOrder.operator = parkingOrderVO.getOperator();
+        parkingOrder.expireTime = parkingOrderVO.getExpireTime();
+        parkingOrder.invoiceState = InvoiceState.valueOf(parkingOrderVO.getInvoiceState());
+        parkingOrder.refundState = RefundState.valueOf(parkingOrderVO.getRefundState());
+        parkingOrder.projectNo = parkingOrderVO.getProjectNo();
+        parkingOrder.creator = parkingOrderVO.getCreator();
+        parkingOrder.modifier = parkingOrderVO.getModifier();
+        return parkingOrder;
     }
 
-    public static List<ParkingOrder> findByPlateNosAndEndTimeRange(List<String> userIds, long begin, long end) {
-        return parkingOrderRepository.findByPlateNosAndEndTimeRange(userIds, begin, end);
+    /**
+     * ParkingOrderVOList -> ParkingOrderList.
+     * @param parkingOrderVOList {@link ParkingOrderVO}
+     * @return {@link ParkingOrder}
+     */
+    private static List<ParkingOrder> convert(final List<ParkingOrderVO> parkingOrderVOList) {
+        List<ParkingOrder> parkingOrderList = new ArrayList<>(parkingOrderVOList.size());
+        parkingOrderVOList.forEach(parkingOrderVO -> {
+            ParkingOrder parkingOrder = new ParkingOrder();
+            parkingOrder.orderNo = parkingOrderVO.getOrderNo();
+            parkingOrder.payParkingId = parkingOrderVO.getPayParkingId();
+            parkingOrder.userId = parkingOrderVO.getUserId();
+            parkingOrder.tempType = parkingOrderVO.getTempType().equals(1);
+            parkingOrder.carTypeClass = CarTypeClass.valueOf(parkingOrderVO.getCarTypeClass());
+            parkingOrder.carTypeName = parkingOrderVO.getCarTypeName();
+            parkingOrder.carTypeId = new ObjectId(parkingOrderVO.getCarTypeId());
+            parkingOrder.beginTime = parkingOrderVO.getBeginTime();
+            parkingOrder.endTime = parkingOrderVO.getEndTime();
+            parkingOrder.nextAggregateBeginTime = parkingOrderVO.getNextAggregateBeginTime();
+            parkingOrder.aggregatedMaxAmount = parkingOrderVO.getAggregatedMaxAmount();
+            parkingOrder.parkingMinutes = parkingOrderVO.getParkingMinutes();
+
+            // 增加 优惠券信息,如果存在
+            DiscountInfoDO discountInfoDO = parkingOrderVO.getDiscountInfoDO();
+            if (Objects.nonNull(discountInfoDO)) {
+                DiscountInfo discountInfo = new DiscountInfo();
+                discountInfo.setDiscountNo(discountInfoDO.getDiscountNo());
+                discountInfo.setValueType(ValueType.valueOf(discountInfoDO.getValueType()));
+                discountInfo.setValue(discountInfoDO.getValue());
+                discountInfo.setQuantity(discountInfoDO.getQuantity());
+                discountInfo.setUsedStartTime(discountInfoDO.getUsedStartTime());
+                discountInfo.setUsedEndTime(discountInfoDO.getUsedEndTime());
+                parkingOrder.discountInfo = discountInfo;
+            }
+
+            LinkedList<ChargeInfoVO> chargeInfoVOList = parkingOrderVO.getChargeInfos();
+            if (Objects.nonNull(chargeInfoVOList) && chargeInfoVOList.size() > 0) {
+               LinkedList<ChargeInfo>  chargeInfos = new LinkedList<>();
+               chargeInfoVOList.forEach(chargeInfoVO -> {
+                   ChargeInfo chargeInfo = new ChargeInfo();
+                   chargeInfo.beginCycleSeq = chargeInfoVO.getBeginCycleSeq();
+                   chargeInfo.cycleNumber = chargeInfoVO.getCycleNumber();
+                   chargeInfo.parkingMinutes = chargeInfoVO.getParkingMinutes();
+                   chargeInfo.balancedMinutes = chargeInfoVO.getBalancedMinutes();
+                   chargeInfo.discountedMinutes = chargeInfoVO.getDiscountedMinutes();
+                   chargeInfo.totalAmount = chargeInfoVO.getTotalAmount();
+                   chargeInfo.extraAmount = chargeInfoVO.getExtraAmount();
+
+
+                   LinkedList<ChargeDetailDO> chargeDetailDOList = chargeInfoVO.getChargeDetailDOList();
+                   if (Objects.nonNull(chargeDetailDOList) && chargeDetailDOList.size() > 0) {
+                       LinkedList<ChargeDetail> chargeDetails = new LinkedList<>();
+                       chargeDetailDOList.forEach(chargeDetailDO -> {
+                           ChargeDetail chargeDetail = new ChargeDetail();
+                           chargeDetail.chargeTypeName  = chargeDetailDO.getChargeTypeName();
+                           chargeDetail.beginTime = chargeDetailDO.getBeginTime();
+                           chargeDetail.endTime = chargeDetailDO.getEndTime();
+                           chargeDetail.parkingMinutes = chargeDetailDO.getParkingMinutes();
+                           chargeDetail.balancedMinutes = chargeDetailDO.getBalancedMinutes();
+                           chargeDetail.freedMinutes = chargeDetailDO.getFreeMinutes();
+                           chargeDetail.discountedMinutes = chargeDetailDO.getDiscountedMinutes();
+                           chargeDetail.chargingMinutes = chargeDetailDO.getChargingMinutes();
+                           chargeDetail.chargeAmount = chargeDetailDO.getChargeAmount();
+                           chargeDetail.remark = chargeDetailDO.getRemark();
+                           chargeDetails.add(chargeDetail);
+                       });
+                       chargeInfo.chargeDetails = chargeDetails;
+                   }
+                   chargeInfos.add(chargeInfo);
+               });
+                parkingOrder.chargeInfos = chargeInfos;
+            }
+            parkingOrder.totalAmount = parkingOrderVO.getTotalAmount();
+            parkingOrder.discountedMinutes = parkingOrderVO.getDiscountedMinutes();
+            parkingOrder.discountedAmount = parkingOrderVO.getDiscountedAmount();
+            parkingOrder.chargeAmount = parkingOrderVO.getChargeAmount();
+            parkingOrder.extraAmount = parkingOrderVO.getExtraAmount();
+            parkingOrder.dueAmount = parkingOrderVO.getDueAmount();
+            parkingOrder.chargeDueAmount = parkingOrderVO.getChargeDueAmount();
+            parkingOrder.paidAmount = parkingOrderVO.getPaidAmount();
+            parkingOrder.payChannel = parkingOrderVO.getPayChannel();
+            parkingOrder.payType = PayType.valueOf(parkingOrderVO.getPayType());
+            parkingOrder.payTime = parkingOrderVO.getPayTime();
+            parkingOrder.receivedAmount = parkingOrderVO.getReceivedAmount();
+            parkingOrder.termNo = parkingOrderVO.getTermNo();
+            parkingOrder.operator = parkingOrderVO.getOperator();
+            parkingOrder.expireTime = parkingOrderVO.getExpireTime();
+            parkingOrder.invoiceState = InvoiceState.valueOf(parkingOrderVO.getInvoiceState());
+            parkingOrder.refundState = RefundState.valueOf(parkingOrderVO.getRefundState());
+            parkingOrder.projectNo = parkingOrderVO.getProjectNo();
+            parkingOrder.creator = parkingOrderVO.getCreator();
+            parkingOrder.modifier = parkingOrderVO.getModifier();
+            parkingOrderList.add(parkingOrder);
+        });
+        return parkingOrderList;
     }
 
-    public static ParkingOrder findNextAggregateBeginTime(List<String> userIds) {
-        return parkingOrderRepository.findNextAggregateBeginTime(userIds);
+    public static List<ParkingOrder> findByUserIdsAndEndTimeRange(String projectNo, List<String> userIds, long begin, long end) {
+        ParkingQuery parkingQuery = ParkingQuery.builder()
+                .projectNo(projectNo)
+                .userIds(userIds)
+                .begin(begin)
+                .end(end)
+                .build();
+        JSONObject result = HttpUtils.sendPost(sharedProperties.getOrderUrl() + "/parking-order/findByUserIdsAndEndTimeRange", JSON.toJSONString(parkingQuery));
+
+        if (Objects.nonNull(result) && result.containsKey("code") && result.getInteger("code").equals(SUCCESS)) {
+            List<ParkingOrderVO> parkingOrderVOList = (List<ParkingOrderVO>) result.get("data");
+            if (parkingOrderVOList.size() > 0) {
+                return convert(parkingOrderVOList);
+            }
+        }
+        return Collections.emptyList();
+
+    }
+
+    public static ParkingOrder findNextAggregateBeginTime(String projectNo, List<String> userIds) {
+        ParkingQuery parkingQuery = ParkingQuery.builder()
+                .projectNo(projectNo)
+                .userIds(userIds)
+                .build();
+        JSONObject result = HttpUtils.sendPost(sharedProperties.getOrderUrl() + "/parking-order/findNextAggregateBeginTime", JSON.toJSONString(parkingQuery));
+
+        if (Objects.nonNull(result) && result.containsKey("code") && result.getInteger("code").equals(SUCCESS)) {
+            ParkingOrderVO parkingOrderVO = (ParkingOrderVO) result.get("data");
+            if (Objects.nonNull(parkingOrderVO)) {
+                return convert(parkingOrderVO);
+            }
+        }
+        return null;
     }
 
     public ParkingOrder() {}
@@ -129,12 +370,6 @@ public class ParkingOrder {
         this.createTime = Util.currentEpoch();
     }
 
-    public void save() {
-        modifier = operator;
-        modifyTime = Util.currentEpoch();
-        parkingOrderRepository.save(this);
-    }
-
     /**
      * TODO: 核心计算费用 --> 根据停车事件,临时车辆类型, 车辆上下文 计算费用
      * @param events
@@ -155,9 +390,9 @@ public class ParkingOrder {
         Long tmpEndTime;
         // 优惠券使用者享受减免免费时长
         tmpEndTime = checkDiscountForFree(discountInfo, beginTime, endTime, parkingConfig);
-        log.info("用户: " + userId + "优惠劵检查后计费结束时间: " + tmpEndTime);
+        log.info("用户: " + userId + " 优惠劵检查后计费结束时间: " + tmpEndTime);
         if (!tmpEndTime.equals(endTime)) {
-            log.info("用户: " + userId + "优惠劵检查后计费结束时间由 " + endTime + " ==> " + tmpEndTime);
+            log.info("用户: " + userId + " 优惠劵检查后计费结束时间由 " + endTime + " ==> " + tmpEndTime);
             events.getLast().eventTime = tmpEndTime;
         }
 
@@ -238,7 +473,7 @@ public class ParkingOrder {
     public void finish(CarContext carContext) {
         payTime = Util.currentEpoch();
         if (discountInfo != null) {
-            discountInfo.use();
+//            discountInfo.use();
         }
     }
     public int effectiveAmount() {
@@ -480,7 +715,7 @@ public class ParkingOrder {
             if (multiMaxPolicy.fromEnter()) {
                 int m = multiMaxPolicy.getMinutes();
                 int max = multiMaxPolicy.getMaxAmount();
-                ParkingOrder lastOrder = findNextAggregateBeginTime(multiMaxPolicy.userIds);
+                ParkingOrder lastOrder = findNextAggregateBeginTime(carContext.getProjectNo(), multiMaxPolicy.userIds);
                 long nextBegin = 0;
                 int aggregateMax = 0;
                 if (lastOrder != null) {
@@ -549,7 +784,7 @@ public class ParkingOrder {
                             if (beginTime > entryCycleBegin && beginTime < entryCycleEnd) {
                                 // search order
                                 // 2. 根据当前订单的结束时间所在的年月日周期 查询是否存在已支付订单
-                                List<ParkingOrder> parkingOrders = findByPlateNosAndBeginTimeOrEndTimeRange(multiMaxPolicy.userIds, entryCycleBegin, entryCycleEnd);
+                                List<ParkingOrder> parkingOrders = findByUserIdsAndBeginTimeOrEndTimeRange(carContext.getProjectNo(), multiMaxPolicy.userIds, entryCycleBegin, entryCycleEnd);
                                 if (!parkingOrders.isEmpty()) {
                                     // 计算未整合之前的计费这个时间段的费用
                                     int tmpEntryLastAmount = 0;
@@ -600,7 +835,7 @@ public class ParkingOrder {
                                 continue;
                             }
                             // 2. 根据当前订单的结束时间所在的年月日周期 查询是否存在已支付订单
-                            List<ParkingOrder> parkingOrders = findByPlateNosAndBeginTimeOrEndTimeRange(multiMaxPolicy.userIds, addCycleBegin, addCycleEnd);
+                            List<ParkingOrder> parkingOrders = findByUserIdsAndBeginTimeOrEndTimeRange(carContext.getProjectNo(), multiMaxPolicy.userIds, addCycleBegin, addCycleEnd);
                             if (!parkingOrders.isEmpty()) {
                                 // 如果查询当前累加周期未查询到支付订单,就根据当前订单的开始时间 判断所在的周期内
                                 for (ParkingOrder parkingOrder : parkingOrders) {
@@ -648,7 +883,7 @@ public class ParkingOrder {
                 } else {
                     // 如果当前计费规则与车辆类型对应的默认计费规则一致,则走计费规则累计计算
                     if (getChargeTypeId(beginTime, periods).equals(carContext.getCarType().defaultChargeTypeId) && dueAmount > 0) {
-                        List<ParkingOrder> parkingOrders = findByPlateNosAndEndTimeRange(multiMaxPolicy.userIds,
+                        List<ParkingOrder> parkingOrders = findByUserIdsAndEndTimeRange(carContext.getProjectNo(), multiMaxPolicy.userIds,
                                 multiMaxPolicy.begin,
                                 multiMaxPolicy.end);
                         if (!parkingOrders.isEmpty()) {
@@ -714,7 +949,8 @@ public class ParkingOrder {
 
     @Override
     public String toString() {
-        return "ParkingOrder{" + ", orderNo='" + orderNo + '\'' + ", payParkingId=" + payParkingId + ", tempType=" + tempType +
+        return "ParkingOrder{" + ", orderNo='" + orderNo + '\'' +
+                ", payParkingId=" + payParkingId + ", userId=" + userId + ", tempType=" + tempType +
                ", carTypeClass=" + carTypeClass + ", carTypeName='" + carTypeName + '\'' + ", carTypeId=" + carTypeId +
                ", beginTime=" + beginTime + ", endTime=" + endTime + ", nextAggregateBeginTime=" +
                nextAggregateBeginTime + ", aggregatedMaxAmount=" + aggregatedMaxAmount + ", parkingMinutes=" +

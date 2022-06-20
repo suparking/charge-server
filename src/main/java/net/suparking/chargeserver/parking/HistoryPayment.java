@@ -11,14 +11,14 @@ public class HistoryPayment {
     public HistoryPayment() {}
 
     public HistoryPayment(ParkingOrder order) {
-        this.userId = order.userId;
+        this.userId = order.userId.toString();
         this.begin = Util.epochToYMDHMS(order.beginTime);
         this.end = Util.epochToYMDHMS(order.endTime);
         this.effectiveAmount = order.effectiveAmount();
     }
 
     public HistoryPayment(ParkingOrder order, long beginTime, long endTime) {
-        this.userId = order.userId;
+        this.userId = order.userId.toString();
         this.begin = Util.epochToYMDHMS(order.beginTime);
         this.end = Util.epochToYMDHMS(order.endTime);
         this.effectiveAmount = order.effectiveAmount(beginTime, endTime);

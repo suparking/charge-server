@@ -25,5 +25,4 @@ public class UserInfo implements Serializable {
 
     // 用户ID.
     private String userId;
-
 }

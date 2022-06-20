@@ -16,29 +16,24 @@ import java.util.List;
 @Repository("CarGroupRepositoryImpl")
 public class CarGroupRepositoryImpl extends BasicRepositoryImpl implements CarGroupRepository {
     @Autowired
-    public CarGroupRepositoryImpl(@Qualifier("MongoTemplate")MongoTemplate template) {
+    public CarGroupRepositoryImpl(@Qualifier("MongoTemplate") MongoTemplate template) {
         super(template);
     }
 
     @Override
-    public void save(CarGroup carGroup) {
-        template.save(carGroup);
-    }
-
-    @Override
-    public CarGroup findByUserId(String userId) {
+    public CarGroup findByProjectNoAndUserId(String projectNo, String userId) {
         return template.findOne(Query.query(
                 Criteria.where("userIds").is(userId)
         ), CarGroup.class);
     }
 
     @Override
-    public CarGroup findById(ObjectId id) {
+    public CarGroup findByProjectNoAndId(String projectNo, ObjectId id) {
         return template.findById(id, CarGroup.class);
     }
 
     @Override
-    public List<CarGroup> findByProtocolId(ObjectId id) {
+    public List<CarGroup> findByProjectNoAndProtocolId(String projectNo, ObjectId id) {
         return template.find(Query.query(
                 Criteria.where("protocolId").is(id)
         ), CarGroup.class);

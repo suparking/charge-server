@@ -39,7 +39,7 @@ public class CarContext {
         carContext.userId = userId;
 
         if (!userId.isEmpty()) {
-            CarGroup carGroup = CarGroup.findByUserId(userId);
+            CarGroup carGroup = CarGroup.findByUserId(projectNo, userId);
             if (carGroup != null) {
                 if ((carContext.protocol = Protocol.findById(carGroup.protocolId)) != null) {
                     carContext.carGroup = carGroup;
@@ -63,7 +63,8 @@ public class CarContext {
                 }
             }
         }
-
+        carContext.projectNo = projectNo;
+        carContext.carType = CarType.findByProjectNoAndUserId(projectNo, userId);
         return carContext;
     }
 

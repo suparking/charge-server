@@ -84,6 +84,16 @@ public class CarTypeRepositoryImpl extends BasicRepositoryImpl implements CarTyp
     }
 
     @Override
+    public CarType findByProjectNoAndUserId(String projectNo, String userId) {
+        if (userId.isEmpty()) {
+            return defaultCarTypeMap.get(projectNo);
+        }
+
+        log.warn("There is no CarType entity for [" + projectNo + "," + userId + "]");
+        return defaultCarTypeMap.get(projectNo);
+    }
+
+    @Override
     public synchronized CarType findById(String projectNo, ObjectId id) {
         List<CarType> carTypes = getCarTypes(projectNo);
         if (Objects.nonNull(carTypes)) {
