@@ -53,11 +53,14 @@ public class CarType extends FieldValidator {
         return carTypeRepository.findById(projectNo, id);
     }
 
+    public static CarType findByProjectNoAndUserId(String projectNo, String userId) {
+        return carTypeRepository.findByProjectNoAndUserId(projectNo, userId);
+    }
     public static boolean tempType(String projectNo, ObjectId id) {
         return carTypeRepository.tempType(projectNo, id);
     }
 
-    private static CarTypeRepository carTypeRepository = ChargeServerApplication.getBean(
+    private static final CarTypeRepository carTypeRepository = ChargeServerApplication.getBean(
             "CarTypeRepositoryImpl", CarTypeRepository.class);
 
     private static final Logger log = LoggerFactory.getLogger(CarType.class);

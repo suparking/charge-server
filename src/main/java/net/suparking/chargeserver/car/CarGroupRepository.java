@@ -5,8 +5,7 @@ import org.bson.types.ObjectId;
 import java.util.List;
 
 public interface CarGroupRepository {
-    void save(CarGroup carGroup);
-    CarGroup findByUserId(String userId);
-    CarGroup findById(ObjectId id);
-    List<CarGroup> findByProtocolId(ObjectId id);
+    CarGroup findByProjectNoAndUserId(String projectNo, String userId);
+    CarGroup findByProjectNoAndId(String projectNo, ObjectId id);
+    List<CarGroup> findByProjectNoAndProtocolId(String projectNo, ObjectId id);
 }

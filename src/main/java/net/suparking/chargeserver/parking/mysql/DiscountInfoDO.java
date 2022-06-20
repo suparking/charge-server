@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.suparking.chargeserver.common.ValueType;
 
 import java.io.Serializable;
 
@@ -14,11 +13,15 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class DiscountInfoDO implements Serializable {
 
-    private static final long serialVersionUID = -2859712365121070033L;
+    private static final long serialVersionUID = -3980067719300176381L;
+
+    private Long id;
+
+    private Long parkingOrderId;
 
     private String discountNo;
 
-    private ValueType valueType;
+    private String valueType;
 
     private Integer value;
 

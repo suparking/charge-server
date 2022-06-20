@@ -36,7 +36,7 @@ public class Parking {
     // 停车记录id
      public String id;
 
-     public String userId;
+     public Long userId;
 
      // 车位ID
      public String parkId;
@@ -104,7 +104,7 @@ public class Parking {
         this.parkNo = recog.getParkNo();
         this.parkName = recog.getParkName();
         this.deviceNo = recog.getDeviceNo();
-        this.userId = recog.getUserId();
+        this.userId = Long.valueOf(recog.getUserId());
         resetCarContextInfo(carContext);
         this.allowCorrect = true;
         this.valid = true;
@@ -115,7 +115,7 @@ public class Parking {
         this.parkingConfig = parkingConfig;
     }
 
-    public Parking(String userId, CarContext carContext, ParkingConfig parkingConfig) {
+    public Parking(Long userId, CarContext carContext, ParkingConfig parkingConfig) {
         this.userId = userId;
         resetCarContextInfo(carContext);
         this.allowCorrect = true;
@@ -142,7 +142,7 @@ public class Parking {
      * @return
      */
     public ParkingOrder queryOrder(final DiscountInfo discountInfo, ObjectId tempCarTypeId) {
-        CarContext carContext = CarContext.findCarContext(projectNo, userId);
+        CarContext carContext = CarContext.findCarContext(projectNo, userId.toString());
         ParkingOrder parkingOrder = new ParkingOrder(this, carContext);
         //  TODO: 离场费用计费如果付费端没有指定优惠劵,那么会查询是否存在绑定劵,如果存在则使用
         parkingOrder.discountInfo = discountInfo;

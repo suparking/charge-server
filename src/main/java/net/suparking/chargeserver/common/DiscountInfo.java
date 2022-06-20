@@ -4,9 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.suparking.chargeserver.ChargeServerApplication;
-import net.suparking.chargeserver.parking.BindingDiscountRepository;
 import net.suparking.chargeserver.util.Util;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -29,9 +28,9 @@ public class DiscountInfo {
      * 根据用户唯一信息,查找优惠券
      * @return
      */
-    public static DiscountInfo getDiscountInfo(final String userId) {
-       return bindingDiscountRepository.getDiscountInfo(userId);
-    }
+//    public static DiscountInfo getDiscountInfo(final String userId) {
+//       return bindingDiscountRepository.getDiscountInfo(userId);
+//    }
 
     public static boolean same(DiscountInfo discountInfo1, DiscountInfo discountInfo2) {
         if (discountInfo1 != null) {
@@ -42,7 +41,7 @@ public class DiscountInfo {
             return true;
         }
     }
-    private static BindingDiscountRepository bindingDiscountRepository = ChargeServerApplication.getBean("BindingDiscountRepositoryImpl", BindingDiscountRepository.class);
+//    private static final BindingDiscountRepository bindingDiscountRepository = ChargeServerApplication.getBean("BindingDiscountRepositoryImpl", BindingDiscountRepository.class);
 
     public DiscountInfo(final DiscountInfo discountInfo) {
         this.discountNo = discountInfo.discountNo;
@@ -73,9 +72,9 @@ public class DiscountInfo {
     /** TODO: disDev --> 2021-06-22
      *  支付成功之后更新使用优惠劵
      * */
-    public void use() {
-        bindingDiscountRepository.useDiscount(discountNo);
-    }
+//    public void use() {
+//        bindingDiscountRepository.useDiscount(discountNo);
+//    }
 
     public boolean quantityEnable() {
         return quantity != null && quantity > 0;
