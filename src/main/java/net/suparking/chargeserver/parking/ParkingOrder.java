@@ -363,6 +363,8 @@ public class ParkingOrder {
         this.chargeDueAmount = 0;
         this.paidAmount = 0;
         this.operator = "system";
+        ParkingConfig parkingConfig = parking.getParkingConfig();
+        expireTime = Util.expireTime(parkingConfig.txTTL);
         this.projectNo = parking.getProjectNo();
         this.invoiceState = InvoiceState.UNISSUED;
         this.refundState = RefundState.NONE;
@@ -385,7 +387,7 @@ public class ParkingOrder {
         beginTime = Util.shapeDayBegin(events.getFirst().eventTime);
         endTime = Util.shapeDayEnd(events.getLast().eventTime);
 
-        log.info("用户: " + userId + "优惠劵检查前计费结束时间: " + endTime);
+        log.info("用户: " + userId + " 优惠劵检查前计费结束时间: " + endTime);
         // TODO 判断是否有绑定劵
         Long tmpEndTime;
         // 优惠券使用者享受减免免费时长
