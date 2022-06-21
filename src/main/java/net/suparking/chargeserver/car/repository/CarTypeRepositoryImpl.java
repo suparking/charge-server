@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.LinkedList;
@@ -46,6 +48,15 @@ public class CarTypeRepositoryImpl extends BasicRepositoryImpl implements CarTyp
             log.info(ct.toString());
             reload(ct);
         }
+    }
+
+    public synchronized void reloadByProjectNo(String projectNo) {
+       List<CarType>  carTypes = findByProjectNo(projectNo);
+       log.info("+++++++++++++++ 项目编号: " + projectNo + " 车辆类型重新加载 +++++++++++++++++++");
+       for (CarType ct: carTypes) {
+           log.info(ct.toString());
+           reload(ct);
+       }
     }
 
     @Override
@@ -118,6 +129,12 @@ public class CarTypeRepositoryImpl extends BasicRepositoryImpl implements CarTyp
             }
         }
         return true;
+    }
+
+    @Override
+    public List<CarType> findByProjectNo(String projectNo) {
+        Query query = new Query(Criteria.where("projectNo").is(projectNo));
+        return template.find(query, CarType.class);
     }
 
     @Override

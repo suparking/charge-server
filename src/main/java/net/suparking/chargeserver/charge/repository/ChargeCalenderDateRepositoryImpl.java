@@ -12,8 +12,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -142,17 +145,54 @@ public class ChargeCalenderDateRepositoryImpl extends BasicRepositoryImpl
     @Override
     public synchronized ObjectId getDateTypeIdByYearMonthDay(String projectNo, int year, int month, int day) {
         Map<Integer, Map<Integer, Map<Integer, ChargeCalender>>> calenderMap = getCalenderMap(projectNo);
-        Map<Integer, Map<Integer, ChargeCalender>> yearMap = calenderMap.get(year);
-        if (yearMap != null) {
-            Map<Integer, ChargeCalender> monthMap = yearMap.get(month);
-            if (monthMap != null) {
-                ChargeCalender chargeCalender = monthMap.get(day);
-                if (chargeCalender != null) {
-                    return chargeCalender.dateTypeId;
+        if (Objects.nonNull(calenderMap)) {
+            Map<Integer, Map<Integer, ChargeCalender>> yearMap = calenderMap.get(year);
+            if (yearMap != null) {
+                Map<Integer, ChargeCalender> monthMap = yearMap.get(month);
+                if (monthMap != null) {
+                    ChargeCalender chargeCalender = monthMap.get(day);
+                    if (chargeCalender != null) {
+                        return chargeCalender.dateTypeId;
+                    }
                 }
             }
         }
         return defaultDateTypeMap.get(projectNo).id;
+    }
+
+    @Override
+    public void reloadByProjectNo(String projectNo) {
+        List<DateType> dateTypes = findDateTypeByProjectNo(projectNo);
+        for (DateType dt: dateTypes) {
+            log.info(dt.toString());
+            if (dt.validate()) {
+                List<DateType> tDateTypes = getDateTypes(dt.projectNo);
+                if (Objects.nonNull(tDateTypes)) {
+                    tDateTypes.removeIf(dateType -> dateType.id.equals(dt.id));
+                    dateTypesMap.put(dt.projectNo, tDateTypes);
+                }
+                loadDateType(dt);
+                resetDefaultDateType(dt.projectNo);
+            } else {
+                log.error("DateType " + dt.id.toString() + " validate failed");
+            }
+        }
+
+
+        List<ChargeCalender> chargeCalenders = findChargeCalenderByProjectNo(projectNo);
+        for (ChargeCalender cc : chargeCalenders) {
+            reloadCalender(cc);
+        }
+    }
+
+    private List<ChargeCalender> findChargeCalenderByProjectNo(String projectNo) {
+        Query query = new Query(Criteria.where("projectNo").is(projectNo));
+        return template.find(query, ChargeCalender.class);
+    }
+
+    private List<DateType> findDateTypeByProjectNo(String projectNo) {
+        Query query = new Query(Criteria.where("projectNo").is(projectNo));
+        return template.find(query, DateType.class);
     }
 
     @Override
@@ -194,9 +234,25 @@ public class ChargeCalenderDateRepositoryImpl extends BasicRepositoryImpl
             calenderMap.get(chargeCalender.year).get(chargeCalender.month).put(chargeCalender.day, chargeCalender);
             calenderMapMap.put(projectNo, calenderMap);
         }
-        if (calendersMap.containsKey(projectNo)) {
-            calendersMap.get(projectNo).add(chargeCalender);
+        calenderMap = new HashMap<>(1);
+        if (calenderMapMap.containsKey(projectNo)) {
+            calenderMap.putIfAbsent(chargeCalender.year, new HashMap<>());
+            calenderMap.get(chargeCalender.year).putIfAbsent(chargeCalender.month, new HashMap<>());
+            calenderMap.get(chargeCalender.year).get(chargeCalender.month).put(chargeCalender.day, chargeCalender);
+            calenderMapMap.put(projectNo, calenderMap);
+            if (calendersMap.containsKey(projectNo)) {
+                calendersMap.get(projectNo).add(chargeCalender);
+            } else {
+                List<ChargeCalender> chargeCalenderList = new ArrayList<>(1);
+                chargeCalenderList.add(chargeCalender);
+                calendersMap.put(projectNo, chargeCalenderList);
+            }
         } else {
+            calenderMap.putIfAbsent(chargeCalender.year, new HashMap<>());
+            calenderMap.get(chargeCalender.year).putIfAbsent(chargeCalender.month, new HashMap<>());
+            calenderMap.get(chargeCalender.year).get(chargeCalender.month).put(chargeCalender.day, chargeCalender);
+            calenderMapMap.put(projectNo, calenderMap);
+
             List<ChargeCalender> calenders = new LinkedList<>();
             calenders.add(chargeCalender);
             calendersMap.put(projectNo, calenders);

@@ -10,14 +10,12 @@ public class ParkingConfig extends FieldValidator {
     @ParamNotNull
     public Integer txTTL;
     @ParamNotNull
-    public Integer minIntervalForDupRecog;
-    public Integer minIntervalForDupPark;
-    @ParamNotNull
-    public Integer minParkingSecond;
-    @ParamNotNull
     public Integer prepayFreeMinutes;
     // TODO add bind discount free time
     public Integer bindDiscountFreeMinutes;
+    public Integer minIntervalForDupPark;
+    public Integer minIntervalForDupRecog;
+    public Integer minParkingSecond;
 
     public boolean validate() {
         if (!super.validate()) {

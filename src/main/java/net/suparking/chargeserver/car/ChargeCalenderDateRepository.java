@@ -13,4 +13,6 @@ public interface ChargeCalenderDateRepository {
     ObjectId getDateTypeIdByCalender(String projectNo, Calendar calendar);
     ObjectId getDateTypeIdByEpoch(String projectNo, long time);
     ObjectId getDateTypeIdByYearMonthDay(String projectNo, int year, int month, int day);
+
+    void reloadByProjectNo(String projectNo);
 }

@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.LinkedList;
@@ -81,6 +83,21 @@ public class ChargeTypeRepositoryImpl extends BasicRepositoryImpl
     @Override
     public synchronized ChargeType findByDefault(String projectNo) {
         return defaultChargeTypeMap.get(projectNo);
+    }
+
+    @Override
+    public synchronized void reloadByProjectNo(String projectNo) {
+        List<ChargeType> chargeTypes = findByProjectNo(projectNo);
+        for (ChargeType ct: chargeTypes) {
+            log.info(ct.toString());
+            reload(ct);
+        }
+    }
+
+    @Override
+    public List<ChargeType> findByProjectNo(String projectNo) {
+        Query query = new Query(Criteria.where("projectNo").is(projectNo));
+        return template.find(query, ChargeType.class);
     }
 
     @Override

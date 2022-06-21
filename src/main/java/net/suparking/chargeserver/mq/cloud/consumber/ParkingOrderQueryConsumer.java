@@ -4,7 +4,6 @@ import net.suparking.chargeserver.car.CarGroupTraceInfo;
 import net.suparking.chargeserver.cmd.ParkingOrderQueryCommand;
 import net.suparking.chargeserver.cmd.ParkingOrderQueryIn;
 import net.suparking.chargeserver.cmd.ParkingOrderQueryOut;
-import net.suparking.chargeserver.common.CarTypeClass;
 import net.suparking.chargeserver.common.DiscountInfo;
 import net.suparking.chargeserver.common.ValueType;
 import net.suparking.chargeserver.exception.ParamNotNull;
@@ -21,7 +20,9 @@ import net.suparking.chargeserver.parking.mysql.DiscountInfoDO;
 import net.suparking.chargeserver.parking.mysql.ParkingDO;
 import net.suparking.chargeserver.parking.mysql.ParkingEventDO;
 import net.suparking.chargeserver.parking.mysql.ParkingTriggerDO;
+import net.suparking.chargeserver.parking.mysql.ProjectConfig;
 import net.suparking.chargeserver.parking.mysql.UserInfo;
+import net.suparking.chargeserver.project.ParkingConfig;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -46,6 +47,9 @@ public class ParkingOrderQueryConsumer extends CloudConsumer {
 
         public List<ParkingEventDO> parkingEvents;
         public ObjectId tempCarTypeId;
+
+        @ParamNotNull
+        public ProjectConfig projectConfig;
 
         @ParamNotNull
         public UserInfo userInfo;
@@ -96,14 +100,17 @@ public class ParkingOrderQueryConsumer extends CloudConsumer {
         }
 
         public DiscountInfo convert(final DiscountInfoDO discountInfoDO) {
-            return DiscountInfo.builder()
-                    .discountNo(discountInfoDO.getDiscountNo())
-                    .valueType(ValueType.valueOf(discountInfoDO.getValueType()))
-                    .value(discountInfoDO.getValue())
-                    .quantity(discountInfoDO.getQuantity())
-                    .usedStartTime(discountInfoDO.getUsedStartTime())
-                    .usedEndTime(discountInfoDO.getUsedEndTime())
-                    .build();
+            if (Objects.nonNull(discountInfoDO)) {
+                return DiscountInfo.builder()
+                        .discountNo(discountInfoDO.getDiscountNo())
+                        .valueType(ValueType.valueOf(discountInfoDO.getValueType()))
+                        .value(discountInfoDO.getValue())
+                        .quantity(discountInfoDO.getQuantity())
+                        .usedStartTime(discountInfoDO.getUsedStartTime())
+                        .usedEndTime(discountInfoDO.getUsedEndTime())
+                        .build();
+            }
+            return null;
         }
 
         public LinkedList<ParkingEvent> convert(List<ParkingEventDO> parkingEventsDO) {
@@ -129,6 +136,15 @@ public class ParkingOrderQueryConsumer extends CloudConsumer {
             });
 
             return parkingEvents;
+        }
+
+        public ParkingConfig convert(ProjectConfig parkingConfigDO) {
+            ParkingConfig parkingConfig = new ParkingConfig();
+            parkingConfig.txTTL = parkingConfigDO.getTxTTL();
+            parkingConfig.minIntervalForDupPark = parkingConfigDO.getMinIntervalForDupPark();
+            parkingConfig.bindDiscountFreeMinutes = parkingConfigDO.getBindDiscountFreeMinutes();
+            parkingConfig.prepayFreeMinutes = parkingConfigDO.getPrepayFreeMinutes();
+            return parkingConfig;
         }
     }
 
@@ -158,7 +174,9 @@ public class ParkingOrderQueryConsumer extends CloudConsumer {
         parkingOrderQuery.validate();
 
         ParkingOrderQueryIn in = new ParkingOrderQueryIn();
+        in.parkingConfig = parkingOrderQuery.convert(parkingOrderQuery.projectConfig);
         in.parking = parkingOrderQuery.convert(parkingOrderQuery.parking);
+        in.parking.parkingConfig = in.parkingConfig;
         in.discountInfo = parkingOrderQuery.convert(parkingOrderQuery.discountInfo);
         in.enter = parkingOrderQuery.convert(parkingOrderQuery.enter);
         in.parkingEvents = parkingOrderQuery.convert(parkingOrderQuery.parkingEvents);
