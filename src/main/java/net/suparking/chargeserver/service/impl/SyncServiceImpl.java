@@ -40,13 +40,15 @@ public class SyncServiceImpl implements SyncService {
                 });
             } else if(type.equals("all"))  {
                 projectNoList.forEach(item -> {
-                    carTypeRepository.reloadByProjectNo((String) item);
+                    chargeCalenderDateRepository.reloadByProjectNo((String) item);
                 });
+
                 projectNoList.forEach(item -> {
                     chargeTypeRepository.reloadByProjectNo((String) item);
                 });
+
                 projectNoList.forEach(item -> {
-                    chargeCalenderDateRepository.reloadByProjectNo((String) item);
+                    carTypeRepository.reloadByProjectNo((String) item);
                 });
             }
         } catch (Exception ex) {
